@@ -1,0 +1,17 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Segredos / ambiente — NUNCA versionar
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# SO / editor
+.DS_Store
+Thumbs.db
