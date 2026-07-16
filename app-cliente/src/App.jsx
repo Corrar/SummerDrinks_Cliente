@@ -4,6 +4,8 @@ import { useCart } from './hooks/useCart.js';
 import { useRemoteOrders, isReady } from './hooks/useRemoteOrders.js';
 import { useRemoteAgendas } from './hooks/useRemoteAgendas.js';
 import { useMenu } from './hooks/useMenu.js';
+import { useConfig } from './hooks/useConfig.js';
+import { estaAberto } from './lib/schedule.js';
 import { api, uuid } from './lib/api.js';
 import { enfileirar } from './lib/outbox.js';
 
@@ -45,6 +47,11 @@ export function App({
   const { orders, criarPedido, seen, markSeen, toasts: toastsPedido, dismissToast: dismissToastPedido, notifNewIds, setNotifNewIds } = useRemoteOrders();
   const { registrar: registrarAgenda, toasts: toastsAgenda, dismissToast: dismissToastAgenda } = useRemoteAgendas();
   const { featured } = useMenu();
+  const { horarios } = useConfig();
+
+  // Aberto/Fechado derivado dos horários publicados. Enquanto o config não chega,
+  // cai no valor da prop `aberta` (compat com o comportamento antigo).
+  const aberto = horarios.length ? estaAberto(horarios) : aberta;
 
   // Toasts unificados: pedidos (verde, "pronto") + agendas (âmbar/vermelho, status mudou).
   const toasts = [...toastsPedido, ...toastsAgenda];
@@ -150,7 +157,7 @@ export function App({
         }}
       >
         <Header
-          open={aberta}
+          open={aberto}
           dark={dark}
           onToggleTheme={toggle}
           unreadCount={unreadCount}

@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import {
   ClockIcon,
   WhatsappIcon,
@@ -5,12 +6,29 @@ import {
   MailIcon,
   InstagramIcon,
 } from '../icons.jsx';
+import { useConfig } from '../hooks/useConfig.js';
+import { rotuloHorario } from '../lib/schedule.js';
 
-const MAP_SRC =
-  'https://www.google.com/maps?q=Av.%20Boa%20Viagem%2C%201500%2C%20Pina%2C%20Recife%20-%20PE&z=15&output=embed';
+const ENDERECO_FALLBACK = { nome: 'Av. Boa Viagem, 1500 — Pina', endereco: 'Recife · PE' };
 
-/** Aba Contato: mapa do trailer, canais de contato e horário. */
+function mapaSrc(consulta) {
+  return `https://www.google.com/maps?q=${encodeURIComponent(consulta)}&z=15&output=embed`;
+}
+
+/** Aba Contato: mapa do trailer, canais de contato e horário (vivo via /public/config). */
 export function ContactScreen() {
+  const { horarios, locais } = useConfig();
+
+  // Local ativo prioritário; se o backend não devolveu nada, cai no fallback visível.
+  const localAtivo = locais.find((l) => l.ativo) ?? locais[0] ?? ENDERECO_FALLBACK;
+  const enderecoBusca = `${localAtivo.nome} ${localAtivo.endereco}`.trim();
+
+  // Horários por dia da semana, ordem canônica Dom→Sáb; só mostra os que a gestão declarou.
+  const horariosOrdenados = horarios.slice().sort((a, b) => {
+    const ORDEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const idx = (h) => ORDEM.indexOf(String(h?.curto ?? '').toLowerCase().slice(0, 3));
+    return idx(a) - idx(b);
+  });
   const cardLink = {
     display: 'flex',
     alignItems: 'center',
@@ -54,7 +72,7 @@ export function ContactScreen() {
       >
         <iframe
           title="Localização do trailer Summer Drinks"
-          src={MAP_SRC}
+          src={mapaSrc(enderecoBusca)}
           style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
@@ -93,8 +111,8 @@ export function ContactScreen() {
           marginBottom: '14px',
         }}
       >
-        <div style={{ fontWeight: 700, fontSize: '14px' }}>Av. Boa Viagem, 1500 — Pina</div>
-        <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)', marginTop: '2px' }}>Recife · PE</div>
+        <div style={{ fontWeight: 700, fontSize: '14px' }}>{localAtivo.nome}</div>
+        <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)', marginTop: '2px' }}>{localAtivo.endereco}</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(var(--ink),.07)' }}>
           <span style={{ display: 'flex', color: '#f5a623', marginTop: '1px' }}>
             <ClockIcon size={15} />
@@ -139,14 +157,25 @@ export function ContactScreen() {
           </div>
         </a>
 
-        <div style={{ ...cardLink, cursor: 'default' }}>
-          <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
-            <ClockIcon size={19} />
-          </span>
-          <div style={{ flex: 1 }}>
+        <div style={{ ...cardLink, cursor: 'default', display: 'block', padding: '14px 15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '13px', marginBottom: horariosOrdenados.length ? '10px' : 0 }}>
+            <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
+              <ClockIcon size={19} />
+            </span>
             <div style={{ fontWeight: 700, fontSize: '14px' }}>Funcionamento</div>
-            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>Sex a Dom · 18h às 02h</div>
           </div>
+          {horariosOrdenados.length ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', rowGap: '6px', columnGap: '12px', fontSize: '13px', color: 'rgba(var(--ink),.65)', paddingLeft: '53px' }}>
+              {horariosOrdenados.map((h) => (
+                <Fragment key={h.curto || h.dia}>
+                  <span style={{ fontWeight: 600 }}>{h.dia}</span>
+                  <span style={{ color: h.aberto ? 'rgb(var(--ink))' : 'rgba(var(--ink),.4)' }}>{rotuloHorario(h)}</span>
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)', paddingLeft: '53px' }}>Horário será divulgado em breve.</div>
+          )}
         </div>
       </div>
 

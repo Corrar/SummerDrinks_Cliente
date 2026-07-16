@@ -171,4 +171,7 @@ export const api = {
    * `motivo_recusa` só vem preenchido quando status='recusado'.
    */
   statusAgenda: (protocolo) => requisicao(`/agenda/${protocolo}`, { tentativas: 2 }),
+
+  /** Config pública: { horarios, locais }. SEM PII (telefone/whatsapp não vazam por aqui). */
+  getConfig: () => requisicao('/config'),
 };
