@@ -4,6 +4,12 @@ Fonte única de verdade da ponte entre os **dois** sistemas Summer Drinks.
 Leia antes de tocar em qualquer arquivo. Se algo aqui conflitar com o código, o
 código está errado — conserte o código, não este documento.
 
+> **Onde o código vive** — o backend saiu deste repo e agora mora em
+> [`Corrar/SummerDrinks_Atendimento`](https://github.com/Corrar/SummerDrinks_Atendimento).
+> Este repo (`SummerDrinks_Cliente`) fica com o PWA (`app-cliente/`) e o patch
+> histórico (`app-cliente-patch/`). Caminhos citados aqui como `atendimento/src/...`
+> referem-se ao **repo de atendimento**, não a uma pasta deste repo.
+
 ---
 
 ## 0. Os dois sistemas
