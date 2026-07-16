@@ -1,0 +1,3162 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Summer Drinks — Bar Móvel (preview)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   Summer Drinks — estilos globais
+   Apenas o que não pode ser inline: variáveis de tema, keyframes,
+   resets e ajustes de scrollbar/placeholder. O restante do estilo
+   vive em `style={{}}` nos componentes (padrão do design original).
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0d0a07;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Tema (escopo .sd-app) ---- */
+.sd-app {
+  --bg: #16120d;
+  --bg-2: #13100b;
+  --surface: #1c1710;
+  --surface-2: #211b13;
+  --input: #0f0c08;
+  --sheet: #1a150e;
+  --backdrop: #0d0a07;
+  --backdrop-2: #221a10;
+  --ink: 246, 239, 226;
+}
+
+.sd-app[data-theme='light'] {
+  --bg: #fbf5ec;
+  --bg-2: #f1e8d8;
+  --surface: #ffffff;
+  --surface-2: #f0e6d4;
+  --input: #f5edde;
+  --sheet: #fffaf2;
+  --backdrop: #e9e0cf;
+  --backdrop-2: #f4ecdc;
+  --ink: 42, 30, 16;
+}
+
+/* ---- Transições suaves de tema ---- */
+.sd-app *,
+.sd-app *::before,
+.sd-app *::after {
+  transition: background-color 0.32s ease, color 0.3s ease, border-color 0.32s ease,
+    fill 0.28s ease, stroke 0.28s ease;
+}
+.sd-app button {
+  transition: background-color 0.3s ease, color 0.28s ease, border-color 0.3s ease,
+    transform 0.14s ease;
+}
+.sd-app button:active {
+  transform: scale(0.955);
+}
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- Scrollbars ocultas ---- */
+.sd-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.sd-scroll {
+  scrollbar-width: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(var(--ink), 0.32);
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* ---- Animações ---- */
+@keyframes sdRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sdSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sdPop {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sdFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sdToastIn {
+  0% { opacity: 0; transform: translateY(-130%) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sdMenuIn {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sdBellRing {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(16deg); }
+  40% { transform: rotate(-13deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(-5deg); }
+}
+@keyframes sdSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes sdCheckPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sdCheckDraw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes sdRingPulse {
+  0% { transform: scale(0.62); opacity: 0.65; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes sdModalIn {
+  0% { opacity: 0; transform: translateY(24px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<!-- Fonte da aplicação (React + hooks). Bundle único só para preview;
+     o projeto real usa os módulos em /src via Vite. -->
+<script type="text/plain" id="appsrc">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+/* ===== lib/format.js ===== */
+/** Formata um número como moeda brasileira: 25 -> "R$ 25,00". */
+function brl(n) {
+  return 'R$ ' + Number(n).toFixed(2).replace('.', ',');
+}
+
+/** Formata o horário de um pedido: "Hoje · 14:32" ou "05/07 · 14:32". */
+function formatOrderTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const sameDay = d.toDateString() === now.toDateString();
+  const day = sameDay
+    ? 'Hoje'
+    : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  return day + ' · ' + hh + ':' + mm;
+}
+
+
+/* ===== lib/storage.js ===== */
+/** Lê e faz parse de JSON do localStorage, retornando `fallback` em erro. */
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw == null ? fallback : JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+/** Serializa e grava um valor no localStorage (silencioso em erro). */
+function saveJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    /* quota / modo privado — ignora */
+  }
+}
+
+
+/* ===== lib/labels.js ===== */
+/** Rótulos de forma de pagamento — fonte única de verdade. */
+const PAYMENT_LABELS = { pix: 'Pix', cartao: 'Cartão', especie: 'Espécie' };
+
+
+/* ===== data/menu.js ===== */
+/* ============================================================
+   Cardápio Summer Drinks
+   Estrutura de cada categoria: { name, color, items }
+   Cada item cru é [nome, preço, volume, descrição].
+   ============================================================ */
+
+const RAW = [
+  {
+    name: 'Especiais',
+    color: '#f5a623',
+    items: [
+      ['Whisky Energético', 48, 'Copão 770ml', '02 doses de whisky + energético + gelo sabores (coco, maracujá, morango, melancia, maçã verde). Coco Leve.'],
+      ['Ice Gin Sabores', 25, 'Copão 770ml', 'Ice de limão, Gin Theros, xarope de frutas (maracujá, melancia ou maçã verde) e gelo sabor. Coco Leve.'],
+      ['Big Apple', 30, 'Copão 770ml', 'Bacardi Big Apple, vodka, refrigerante Citrus e gelo de maçã verde. Coco Leve.'],
+      ['Rabo Quente', 35, 'Copão 770ml', 'Borda de sal e limão, tequila, vodka, maracujá, laranja, limão, pimenta, xarope simples e gelo.'],
+      ['Tetê de ET', 28, 'Mamadeira 330ml', 'Leite extraterrestre à base de vodka, leite condensado e Yakult.'],
+      ['Apple Martini', 32, 'Copão 770ml', 'Borda de sal e limão, Bacardi Big Apple, vodka, licor de laranja, xarope e gelo de maçã verde. Coco Leve.'],
+      ['Salsa Twist', 30, 'Copão 770ml', 'Borda de sal e limão, Bacardi Big Apple, vodka, xarope de maçã verde, salsinha e gelo. Coco Leve.'],
+    ],
+  },
+  {
+    name: 'Balada',
+    color: '#ff5da2',
+    items: [
+      ['Fuscão Rosa', 25, 'Copão 770ml', 'Corote de melancia, suco em pó de melancia, leite condensado, gelo de coco morango e picolé. Coco Leve.'],
+      ['Ferrari', 25, 'Copão 770ml', 'Corote de morango, suco em pó de morango, leite condensado, picolé e gelo de coco morango. Coco Leve.'],
+      ['Brasília Amarela', 25, 'Copão 770ml', 'Corote de maracujá, suco em pó de maracujá, leite condensado, Fanta Laranja, picolé e gelo de coco. Coco Leve.'],
+      ['Chevette', 25, 'Copão 770ml', 'Corote de baunilha, suco em pó de baunilha c/ limão, leite condensado, picolé e gelo de coco. Coco Leve.'],
+      ['Kombi Furiosa', 25, 'Copão 770ml', 'Corote de açaí c/ catuaba, suco em pó de uva, leite condensado, Fanta Uva, picolé e gelo de coco. Coco Leve.'],
+      ['Opala Azul', 25, 'Copão 770ml', 'Corote de blueberry, suco em pó de baunilha c/ limão, leite condensado, Fanta Uva, picolé e gelo de coco. Coco Leve.'],
+    ],
+  },
+  {
+    name: 'Aperol',
+    color: '#ff7a2f',
+    items: [
+      ['Aperol Spritz', 58, 'Copão 770ml', 'Aperol, Espumante Prosseco, Acqua Mix Soda, laranja e gelo.'],
+      ['Aperol Ice Gin', 52, 'Copão 770ml', 'Aperol, Gin Apogee, Ice Ultra Spritz, laranja e gelo.'],
+      ['Spaghetti', 45, 'Copão 770ml', 'Aperol, vodka, cerveja, suco de limão, laranja, copo encrustado com sal, limão e gelo.'],
+    ],
+  },
+  {
+    name: 'Campari',
+    color: '#e23b3b',
+    items: [
+      ['Boulevardier', 42, 'Copão 550ml', 'Campari, whisky, Vermute Rosso, Bitter Angostura e gelo.'],
+      ['Negroni', 35, 'Copão 550ml', 'Campari, Gin Apogee, Vermute Rosso, Bitter Angostura e gelo.'],
+      ['Garibaldi', 32, 'Copo 550ml', 'Campari e suco de laranja.'],
+    ],
+  },
+  {
+    name: 'Batidinhas',
+    color: '#b07be0',
+    items: [
+      ['Limonada das Neves', 28, 'Copão 770ml', 'Leite de coco, suco de limão, champanhe, vodka, leite condensado e gelo.'],
+      ['Espanhola', 25, 'Copão 770ml', 'Vinho tinto, vodka, morango ou abacaxi ou maracujá, leite condensado e gelo.'],
+      ['Frutas', 23, 'Copão 770ml', 'Champanhe, vodka, coco, morango ou maracujá, leite condensado e gelo.'],
+      ['Abacaxi c/ Maçã Verde', 25, 'Copão 770ml', 'Rum, abacaxi, xarope de maçã verde, leite condensado e gelo.'],
+      ['Abacaxi c/ Hortelã', 25, 'Copão 770ml', 'Champanhe, vodka, abacaxi, hortelã, leite condensado e gelo.'],
+      ['Paçoquita', 30, 'Copão 770ml', 'Champanhe, vodka, leite condensado, doce de leite, paçoquinha e gelo.'],
+    ],
+  },
+  {
+    name: 'Caipirinhas',
+    color: '#b6e84c',
+    items: [
+      ['Caipiroska', 25, 'Copão 550ml', 'Vodka, abacaxi, limão, morango ou maracujá.'],
+      ['Caipirinha', 23, 'Copão 550ml', 'Cachaça, abacaxi, limão, morango ou maracujá.'],
+      ['Caipirinha Gelo Água de Coco', 30, 'Copão 550ml', 'Vodka, limão, morango ou maracujá, xarope simples e gelo água de coco.'],
+      ['Caipirinha Maracujá c/ Manjericão', 28, 'Copão 550ml', 'Vodka ou cachaça, maracujá, limão, manjericão, açúcar e gelo.'],
+      ['CaipiCerva', 25, 'Copão 770ml', 'Caipirinha de cerveja c/ Vodka Orloff, limão, açúcar e gelo.'],
+      ['CaipiRíssima Abacaxi c/ Hortelã', 28, 'Copão 550ml', 'Vodka, abacaxi, limão, açúcar, hortelã e gelo.'],
+      ['Caipiroska Morango c/ Maracujá', 28, 'Copão 550ml', 'Vodka, morango, maracujá, limão, açúcar e gelo.'],
+    ],
+  },
+  {
+    name: 'Doses',
+    color: '#4ccfd6',
+    items: [
+      ['Whisky', 25, 'Dose 100ml', ''],
+      ['Tequila José Cuervo', 18, 'Dose', ''],
+      ['Tequila Tequiloka', 8, 'Dose', ''],
+      ['Campari', 20, 'Dose 100ml', ''],
+      ['Conhaque', 15, 'Dose 100ml', ''],
+      ['Licor de Morango', 20, 'Dose 100ml', ''],
+      ['Licor Doce de Leite', 20, 'Dose 100ml', ''],
+      ['Cachaça VB Gold', 7, 'Dose', ''],
+      ['Chicletes Trident', 4.5, 'Unidade', ''],
+      ['Corotes Sabores', 12, 'Unidade', ''],
+      ['Gelo Coco Leve', 10, 'Unidade', ''],
+      ['Red Bull', 20, 'Lata 250ml', ''],
+      ['Monster', 16, 'Lata 250ml', ''],
+    ],
+  },
+  {
+    name: 'Potes',
+    color: '#f0c14b',
+    items: [
+      ['Pote Whisky Premium', 148, 'Pote 1,8L', '06 doses de whisky Red Label, White Horse ou Ballantines + energético Power Bull, com 02 gelos sabores. Coco Leve.'],
+      ['Pote Whisky Passaport', 129, 'Pote 1,8L', '06 doses de whisky Passaport ou Natu Nóbilis + energético Power Bull, com 02 gelos sabores. Coco Leve.'],
+      ['Pote Gin ou Vodka', 123, 'Pote 1,8L', '06 doses de gin ou vodka + energético sabores (maçã verde, mango loko, melancia ou citrus) com 02 gelos. Coco Leve.'],
+      ['Pote Corotes', 98, 'Pote 1,8L', '02 drinks Corotes: Chevette, Opala, Brasília, Ferrari, Fusca ou Kombi, com 02 gelos. Coco Leve.'],
+    ],
+  },
+  {
+    name: 'Baldes',
+    color: '#6aa6ff',
+    items: [
+      ['Balde Whisky Premium', 178, 'Balde 2,2L', '10 doses Red Label, White Horse ou Ballantines + Power Bull, 04 copão 550ml + 04 gelos. Reutilize o balde e ganhe 10% na próxima compra.'],
+      ['Balde Whisky Passaport', 156, 'Balde 2,2L', '10 doses Passaport ou Natu Nóbilis + Power Bull, 04 copão 550ml + 04 gelos. Reutilize e ganhe 10% na próxima compra.'],
+      ['Balde Gin ou Vodka', 148, 'Balde 2,2L', '10 doses de gin ou vodka + energético sabores + 04 copão 550ml + 04 gelos. Reutilize e ganhe 10% na próxima compra.'],
+      ['Balde Corotes', 115, 'Balde 2,2L', '04 drinks Corotes + 04 copão 550ml + 04 gelos. Reutilize o balde e ganhe 10% na próxima compra.'],
+    ],
+  },
+];
+
+/** Cardápio normalizado: cada item vira um objeto com id estável. */
+const MENU = RAW.map((cat, ci) => ({
+  name: cat.name,
+  color: cat.color,
+  items: cat.items.map((it, ii) => ({
+    id: ci + '-' + ii,
+    n: it[0],
+    p: it[1],
+    v: it[2],
+    d: it[3] || '',
+    color: cat.color,
+    cat: cat.name,
+  })),
+}));
+
+/** Lista plana de todos os itens do cardápio. */
+const ALL_ITEMS = MENU.flatMap((c) => c.items);
+
+const FEATURED_NAMES = [
+  'Whisky Energético',
+  'Aperol Spritz',
+  'Rabo Quente',
+  'Fuscão Rosa',
+  'Caipirinha',
+  'Tetê de ET',
+];
+
+/** Itens "Mais pedidas" (destaques do topo do cardápio). */
+const FEATURED = FEATURED_NAMES.map((name) =>
+  ALL_ITEMS.find((i) => i.n === name),
+).filter(Boolean);
+
+
+/* ===== data/calendar.js ===== */
+/* ============================================================
+   Agenda de eventos — disponibilidade do trailer.
+   Datas ocupadas / parciais são mockadas; em produção viriam
+   de uma API. Meses são 0-indexados (padrão do Date do JS).
+   ============================================================ */
+
+const MESES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+const MESES_ABR = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+  'jul', 'ago', 'set', 'out', 'nov', 'dez',
+];
+
+const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+/** Dias totalmente ocupados, por chave "ano-mês". */
+const OCUPADO = { '2026-5': [27, 28], '2026-6': [4, 11, 18, 25] };
+
+/** Dias parcialmente ocupados (algum horário livre). */
+const PARCIAL = { '2026-5': [25, 26, 30], '2026-6': [3, 5, 12, 19, 26] };
+
+/** Data de referência (hoje) usada para bloquear datas passadas. */
+const TODAY = { y: 2026, m: 5, d: 24 };
+
+/** Cor de cada status de disponibilidade. */
+const STATUS_COLOR = { livre: '#b6e84c', parcial: '#f5a623', ocupado: '#e23b3b' };
+
+/**
+ * Retorna o status de uma data:
+ * 'past' | 'ocupado' | 'parcial' | 'livre'.
+ */
+function statusOf(y, m, d) {
+  const ts = Date.UTC(y, m, d);
+  const today = Date.UTC(TODAY.y, TODAY.m, TODAY.d);
+  if (ts < today) return 'past';
+  const key = y + '-' + m;
+  if ((OCUPADO[key] || []).includes(d)) return 'ocupado';
+  if ((PARCIAL[key] || []).includes(d)) return 'parcial';
+  return 'livre';
+}
+
+
+/* ===== icons.jsx ===== */
+/* ============================================================
+   Ícones (SVG inline). Cada ícone aceita `size` e repassa o
+   restante das props ao <svg>, permitindo style/className/etc.
+   Traço fino no padrão Lucide.
+   ============================================================ */
+
+function Svg({ size = 20, stroke = 2, fill = 'none', children, ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={fill}
+      stroke={fill === 'none' ? 'currentColor' : 'none'}
+      strokeWidth={fill === 'none' ? stroke : undefined}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+function BellIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      <path d="M21 17H3l1.3-1.7A2 2 0 0 0 4.8 14V10a7.2 7.2 0 0 1 14.4 0v4a2 2 0 0 0 .5 1.3z" />
+    </Svg>
+  );
+}
+
+function SunIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </Svg>
+  );
+}
+
+function MoonIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+    </Svg>
+  );
+}
+
+function TrendingUpIcon(props) {
+  return (
+    <Svg stroke={2.2} {...props}>
+      <path d="M3 17l6-6 4 4 7-7" />
+      <path d="M17 8h4v4" />
+    </Svg>
+  );
+}
+
+function SearchIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4-4" />
+    </Svg>
+  );
+}
+
+function PlusIcon(props) {
+  return (
+    <Svg stroke={2.6} {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  );
+}
+
+function XIcon(props) {
+  return (
+    <Svg stroke={2.2} {...props}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </Svg>
+  );
+}
+
+function ChevronLeftIcon(props) {
+  return (
+    <Svg stroke={2.2} {...props}>
+      <path d="M15 18l-6-6 6-6" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon(props) {
+  return (
+    <Svg stroke={2.2} {...props}>
+      <path d="M9 18l6-6-6-6" />
+    </Svg>
+  );
+}
+
+function ClockIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </Svg>
+  );
+}
+
+function MapPinIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </Svg>
+  );
+}
+
+function PhoneIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
+    </Svg>
+  );
+}
+
+function MailIcon(props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </Svg>
+  );
+}
+
+function WhatsappIcon(props) {
+  return (
+    <Svg fill="currentColor" {...props}>
+      <path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-2.8.8.8-2.8-.2-.3A8 8 0 1 1 12 20zm4.5-5.9c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8 1-.3.2-.5.1a6.6 6.6 0 0 1-3.2-2.8c-.2-.4.2-.4.6-1.2a.5.5 0 0 0 0-.5c0-.1-.5-1.3-.7-1.7s-.4-.4-.5-.4h-.5a.9.9 0 0 0-.7.3 2.8 2.8 0 0 0-.9 2.1 4.9 4.9 0 0 0 1 2.6 11 11 0 0 0 4.3 3.8c1.5.6 2 .7 2.8.6a2.4 2.4 0 0 0 1.6-1.1 2 2 0 0 0 .1-1.1c0-.1-.2-.2-.5-.3z" />
+    </Svg>
+  );
+}
+
+function InstagramIcon(props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+function CheckCircleIcon(props) {
+  return (
+    <Svg stroke={2.3} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12 2.5 2.5 4.5-5" />
+    </Svg>
+  );
+}
+
+function CheckIcon(props) {
+  return (
+    <Svg stroke={2.6} {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </Svg>
+  );
+}
+
+function SendIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M22 2 11 13" />
+      <path d="m22 2-7 20-4-9-9-4 20-7z" />
+    </Svg>
+  );
+}
+
+function CalendarCheckIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="m9 16 2 2 4-4" />
+    </Svg>
+  );
+}
+
+function CircleCheckBigIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M22 12a10 10 0 1 1-5-8.7" />
+      <path d="M22 4 12 14.5l-3-3" />
+    </Svg>
+  );
+}
+
+function CupIcon(props) {
+  return (
+    <Svg stroke={1.6} {...props}>
+      <path d="M5 4h14l-7 8z" />
+      <path d="M12 12v7" />
+      <path d="M8 20h8" />
+    </Svg>
+  );
+}
+
+/* ---- Ícones da navegação inferior ---- */
+
+function NavMenuIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M8 22h8" />
+      <path d="M12 11v11" />
+      <path d="m19 3-7 8-7-8Z" />
+    </Svg>
+  );
+}
+
+function NavOrdersIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+      <path d="M13 5v2" />
+      <path d="M13 17v2" />
+      <path d="M13 11v2" />
+    </Svg>
+  );
+}
+
+function NavEventsIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 14h.01" />
+      <path d="M12 14h.01" />
+      <path d="M16 14h.01" />
+      <path d="M8 18h.01" />
+      <path d="M12 18h.01" />
+      <path d="M16 18h.01" />
+    </Svg>
+  );
+}
+
+function NavContactIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+      <circle cx="12" cy="10" r="3" />
+    </Svg>
+  );
+}
+
+
+/* ===== hooks/useLocalStorage.js ===== */
+
+/**
+ * useState com persistência automática em localStorage.
+ * Retorna [valor, setValor] — a mesma assinatura de useState.
+ */
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => loadJSON(key, initialValue));
+
+  const set = useCallback(
+    (next) => {
+      setValue((prev) => {
+        const resolved = typeof next === 'function' ? next(prev) : next;
+        saveJSON(key, resolved);
+        return resolved;
+      });
+    },
+    [key],
+  );
+
+  return [value, set];
+}
+
+
+/* ===== hooks/useTheme.js ===== */
+
+const KEY = 'sd_theme';
+
+/**
+ * Tema claro/escuro persistido. `temaInicial` ('escuro' | 'claro')
+ * define o padrão apenas quando não há preferência salva.
+ * Retorna { dark, toggle }.
+ */
+function useTheme(temaInicial = 'escuro') {
+  const [dark, setDark] = useState(() => {
+    const saved = loadJSON(KEY, null);
+    if (saved === 'light') return false;
+    if (saved === 'dark') return true;
+    return temaInicial !== 'claro';
+  });
+
+  const toggle = useCallback(() => {
+    setDark((prev) => {
+      const next = !prev;
+      saveJSON(KEY, next ? 'dark' : 'light');
+      return next;
+    });
+  }, []);
+
+  return { dark, toggle };
+}
+
+
+/* ===== hooks/useCart.js ===== */
+
+/**
+ * Carrinho de compras em memória.
+ * Cada linha: { id, n, p, v, qty }.
+ */
+function useCart() {
+  const [items, setItems] = useState([]);
+
+  const add = useCallback((it) => {
+    setItems((cart) => {
+      const existing = cart.find((c) => c.id === it.id);
+      if (existing) {
+        return cart.map((c) => (c.id === it.id ? { ...c, qty: c.qty + 1 } : c));
+      }
+      return [...cart, { id: it.id, n: it.n, p: it.p, v: it.v, qty: 1 }];
+    });
+  }, []);
+
+  const inc = useCallback((id) => {
+    setItems((cart) => cart.map((c) => (c.id === id ? { ...c, qty: c.qty + 1 } : c)));
+  }, []);
+
+  const dec = useCallback((id) => {
+    setItems((cart) =>
+      cart.flatMap((c) =>
+        c.id === id ? (c.qty > 1 ? [{ ...c, qty: c.qty - 1 }] : []) : [c],
+      ),
+    );
+  }, []);
+
+  const clear = useCallback(() => setItems([]), []);
+
+  const count = useMemo(() => items.reduce((a, i) => a + i.qty, 0), [items]);
+  const total = useMemo(() => items.reduce((a, i) => a + i.p * i.qty, 0), [items]);
+
+  const qtyOf = useCallback(
+    (id) => {
+      const c = items.find((x) => x.id === id);
+      return c ? c.qty : 0;
+    },
+    [items],
+  );
+
+  return { items, add, inc, dec, clear, count, total, qtyOf };
+}
+
+
+/* ===== hooks/useOrders.js ===== */
+
+const ORDERS_KEY = 'sd_orders';
+const SEEN_KEY = 'sd_seen';
+
+/** Um pedido já está pronto para retirada? */
+function isReady(o) {
+  return Date.now() >= o.ts + (o.prepMs || 0);
+}
+
+/**
+ * Pedidos + notificações.
+ * - Persiste pedidos e ids "vistos" em localStorage.
+ * - Agenda um timer por pedido que dispara um toast quando fica pronto.
+ *
+ * Retorna: { orders, addOrder, seen, markSeen, toasts, dismissToast,
+ *            notifNewIds, setNotifNewIds }.
+ */
+function useOrders() {
+  const [orders, setOrders] = useState(() => loadJSON(ORDERS_KEY, []));
+  const [seen, setSeen] = useState(() => loadJSON(SEEN_KEY, []));
+  const [toasts, setToasts] = useState([]);
+  const [notifNewIds, setNotifNewIds] = useState([]);
+  const timers = useRef({});
+
+  const dismissToast = useCallback((id) => {
+    setToasts((ts) => ts.filter((t) => t.id !== id));
+  }, []);
+
+  const notifyReady = useCallback(
+    (o) => {
+      setToasts((ts) => (ts.some((t) => t.id === o.id) ? ts : [...ts, { id: o.id, senha: o.senha, name: o.name }]));
+      setTimeout(() => dismissToast(o.id), 8000);
+    },
+    [dismissToast],
+  );
+
+  const scheduleReady = useCallback(
+    (o) => {
+      if (timers.current[o.id]) return;
+      const remaining = o.ts + (o.prepMs || 0) - Date.now();
+      if (remaining <= 0) return;
+      timers.current[o.id] = setTimeout(() => {
+        delete timers.current[o.id];
+        notifyReady(o);
+      }, remaining);
+    },
+    [notifyReady],
+  );
+
+  // Reagenda avisos de pedidos ainda em preparo ao montar / recarregar.
+  useEffect(() => {
+    orders.forEach(scheduleReady);
+    const snapshot = timers.current;
+    return () => Object.values(snapshot).forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addOrder = useCallback(
+    (order) => {
+      setOrders((prev) => {
+        const next = [order, ...prev];
+        saveJSON(ORDERS_KEY, next);
+        return next;
+      });
+      scheduleReady(order);
+    },
+    [scheduleReady],
+  );
+
+  const markSeen = useCallback((ids) => {
+    setSeen((prev) => {
+      const next = Array.from(new Set([...prev, ...ids]));
+      saveJSON(SEEN_KEY, next);
+      return next;
+    });
+  }, []);
+
+  return {
+    orders,
+    addOrder,
+    seen,
+    markSeen,
+    toasts,
+    dismissToast,
+    notifNewIds,
+    setNotifNewIds,
+  };
+}
+
+
+/* ===== components/ImageSlot.jsx ===== */
+
+/**
+ * Espaço de foto que o usuário preenche (clique ou arraste uma imagem).
+ * A imagem é guardada como Data URL em localStorage, sob a chave `id`,
+ * então persiste entre sessões. Substitua por <img src> vindo da API
+ * quando integrar o back-end.
+ *
+ * Props:
+ *  - id          chave única (persistência)
+ *  - shape       'rect' | 'rounded' | 'circle'
+ *  - radius      raio em px quando shape='rounded'
+ *  - fit         'cover' | 'contain'
+ *  - placeholder texto do estado vazio
+ *  - style       estilos extra do contêiner
+ */
+function ImageSlot({
+  id,
+  shape = 'rect',
+  radius = 0,
+  fit = 'cover',
+  placeholder = 'Adicionar foto',
+  style = {},
+}) {
+  const [src, setSrc] = useLocalStorage('sd_img_' + id, '');
+  const [over, setOver] = useState(false);
+  const inputRef = useRef(null);
+
+  const borderRadius =
+    shape === 'circle' ? '50%' : shape === 'rounded' ? radius + 'px' : 0;
+
+  function readFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => setSrc(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    setOver(false);
+    readFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+  }
+
+  return (
+    <div
+      onClick={() => inputRef.current && inputRef.current.click()}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={onDrop}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius,
+        background: 'var(--input)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: over ? 'inset 0 0 0 2px #f5a623' : 'none',
+        ...style,
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: fit, display: 'block' }}
+        />
+      ) : (
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            color: 'rgba(var(--ink),.35)',
+            textAlign: 'center',
+            padding: '4px 8px',
+            lineHeight: 1.3,
+            pointerEvents: 'none',
+          }}
+        >
+          {placeholder}
+        </span>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => readFile(e.target.files && e.target.files[0])}
+        style={{ display: 'none' }}
+      />
+    </div>
+  );
+}
+
+
+/* ===== components/Header.jsx ===== */
+
+/**
+ * Cabeçalho fixo: logo, sino de notificações (com contador de não
+ * lidos e animação de toque), alternância de tema e status Aberto/Fechado.
+ */
+function Header({ open, dark, onToggleTheme, unreadCount, onBell }) {
+  const circleBtn = {
+    width: '38px',
+    height: '38px',
+    borderRadius: '999px',
+    background: 'var(--surface-2)',
+    border: '1px solid rgba(var(--ink),.1)',
+    color: 'rgb(var(--ink))',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flex: '0 0 auto',
+  };
+
+  return (
+    <header
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '18px 20px 14px',
+        flex: '0 0 auto',
+        zIndex: 4,
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+        <span
+          style={{
+            fontFamily: "'Bricolage Grotesque',sans-serif",
+            fontWeight: 800,
+            fontSize: '21px',
+            color: 'rgb(var(--ink))',
+            letterSpacing: '-.4px',
+          }}
+        >
+          Summer Drinks
+        </span>
+        <span
+          style={{
+            fontWeight: 700,
+            fontSize: '9px',
+            letterSpacing: '3px',
+            color: '#f5a623',
+            marginTop: '4px',
+          }}
+        >
+          BAR MÓVEL · COQUETELARIA
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button onClick={onBell} aria-label="Notificações" style={{ ...circleBtn, position: 'relative' }}>
+          <span
+            style={{
+              display: 'flex',
+              transformOrigin: '50% 4px',
+              animation: unreadCount > 0 ? 'sdBellRing 1.1s ease 1.5' : 'none',
+            }}
+          >
+            <BellIcon size={18} />
+          </span>
+          {unreadCount > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: '-3px',
+                right: '-3px',
+                minWidth: '16px',
+                height: '16px',
+                padding: '0 4px',
+                boxSizing: 'border-box',
+                background: '#b6e84c',
+                color: '#1a1206',
+                borderRadius: '999px',
+                fontSize: '9px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid var(--bg)',
+              }}
+            >
+              {unreadCount}
+            </span>
+          )}
+        </button>
+
+        <button onClick={onToggleTheme} aria-label="Alternar tema" style={circleBtn}>
+          {dark ? <SunIcon size={18} /> : <MoonIcon size={17} />}
+        </button>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '7px',
+            padding: '7px 13px',
+            borderRadius: '999px',
+            background: 'var(--surface-2)',
+            border: '1px solid rgba(var(--ink),.08)',
+          }}
+        >
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: open ? '#b6e84c' : '#e23b3b',
+              boxShadow: open ? '0 0 8px #b6e84c' : 'none',
+            }}
+          />
+          <span style={{ fontWeight: 700, fontSize: '12px', color: open ? 'rgb(var(--ink))' : 'rgba(var(--ink),.7)' }}>
+            {open ? 'Aberto' : 'Fechado'}
+          </span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+
+/* ===== components/BottomNav.jsx ===== */
+
+const TABS = [
+  { key: 'cardapio', text: 'Cardápio', Icon: NavMenuIcon },
+  { key: 'pedidos', text: 'Pedidos', Icon: NavOrdersIcon },
+  { key: 'eventos', text: 'Eventos', Icon: NavEventsIcon },
+  { key: 'contato', text: 'Contato', Icon: NavContactIcon },
+];
+
+/**
+ * Navegação inferior em "pílula". A aba ativa expande e revela o rótulo.
+ * O badge de "Pedidos" mostra a quantidade de comandas.
+ */
+function BottomNav({ tab, onTab, orderCount }) {
+  return (
+    <nav
+      style={{
+        flex: '0 0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        gap: '4px',
+        margin: '0 12px calc(12px + env(safe-area-inset-bottom))',
+        padding: '7px',
+        background: 'var(--bg-2)',
+        border: '1px solid rgba(var(--ink),.09)',
+        borderRadius: '24px',
+        boxShadow: '0 10px 30px rgba(0,0,0,.28)',
+        zIndex: 6,
+      }}
+    >
+      {TABS.map(({ key, text, Icon }) => {
+        const on = tab === key;
+        const showBadge = key === 'pedidos' && orderCount > 0;
+        return (
+          <button
+            key={key}
+            onClick={() => onTab(key)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'Hanken Grotesk',
+              borderRadius: '999px',
+              overflow: 'hidden',
+              padding: on ? '11px 16px' : '11px 13px',
+              background: on ? 'rgba(245,166,35,.16)' : 'transparent',
+              color: on ? '#f5a623' : 'rgba(var(--ink),.45)',
+              transition:
+                'background-color .28s ease, color .28s ease, padding .28s cubic-bezier(.3,.8,.3,1)',
+            }}
+          >
+            <span style={{ position: 'relative', display: 'flex', flex: '0 0 auto' }}>
+              <Icon size={21} />
+              {showBadge && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-7px',
+                    minWidth: '15px',
+                    height: '15px',
+                    padding: '0 4px',
+                    boxSizing: 'border-box',
+                    background: '#b6e84c',
+                    color: '#1a1206',
+                    borderRadius: '999px',
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid var(--bg-2)',
+                  }}
+                >
+                  {orderCount}
+                </span>
+              )}
+            </span>
+            <span
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                transition:
+                  'max-width .3s cubic-bezier(.3,.8,.3,1), opacity .22s ease, margin .3s ease',
+                maxWidth: on ? '96px' : '0px',
+                opacity: on ? 1 : 0,
+                marginLeft: on ? '8px' : '0px',
+              }}
+            >
+              {text}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+
+/* ===== components/CartBar.jsx ===== */
+
+/** Barra flutuante do carrinho — abre o checkout. */
+function CartBar({ count, total, onOpen }) {
+  return (
+    <button
+      onClick={onOpen}
+      style={{
+        position: 'absolute',
+        left: '14px',
+        right: '14px',
+        bottom: '80px',
+        zIndex: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        background: '#f5a623',
+        border: 'none',
+        borderRadius: '15px',
+        padding: '13px 16px',
+        cursor: 'pointer',
+        boxShadow: '0 10px 30px rgba(245,166,35,.3)',
+        animation: 'sdRise .25s ease',
+      }}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span
+          style={{
+            minWidth: '26px',
+            height: '26px',
+            padding: '0 7px',
+            boxSizing: 'border-box',
+            background: '#1a1206',
+            color: '#f5a623',
+            borderRadius: '8px',
+            fontWeight: 800,
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {count}
+        </span>
+        <span style={{ fontWeight: 800, fontSize: '14px', color: '#1a1206' }}>Ver pedido</span>
+      </span>
+      <span
+        style={{
+          fontFamily: "'Bricolage Grotesque'",
+          fontWeight: 800,
+          fontSize: '16px',
+          color: '#1a1206',
+        }}
+      >
+        {brl(total)}
+      </span>
+    </button>
+  );
+}
+
+
+/* ===== components/Toasts.jsx ===== */
+
+/**
+ * Pilha de toasts no topo — avisa quando um pedido fica pronto.
+ * Clicar leva à aba Pedidos; o "x" dispensa.
+ */
+function Toasts({ toasts, onOpen, onDismiss }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        padding: '12px 14px 0',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        pointerEvents: 'none',
+      }}
+    >
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          onClick={() => onOpen(t)}
+          style={{
+            pointerEvents: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: 'var(--surface)',
+            border: '1px solid rgba(182,232,76,.35)',
+            borderLeft: '4px solid #b6e84c',
+            borderRadius: '15px',
+            padding: '12px 13px',
+            boxShadow: '0 16px 40px rgba(0,0,0,.45)',
+            cursor: 'pointer',
+            animation: 'sdToastIn .45s cubic-bezier(.2,1.1,.3,1)',
+          }}
+        >
+          <span
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'rgba(182,232,76,.16)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#b6e84c',
+              flex: '0 0 auto',
+              animation: 'sdBellRing 1s ease .2s 2',
+            }}
+          >
+            <BellIcon size={22} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: '13.5px', lineHeight: 1.25 }}>
+              {t.name ? `${t.name}, seu pedido está pronto!` : 'Seu pedido está pronto!'}
+            </div>
+            <div style={{ fontSize: '12px', color: 'rgba(var(--ink),.55)', marginTop: '2px' }}>
+              Senha <b style={{ color: '#b6e84c' }}>{t.senha}</b> · retire no trailer
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss(t.id);
+            }}
+            aria-label="Dispensar"
+            style={{
+              width: '28px',
+              height: '28px',
+              flex: '0 0 auto',
+              border: 'none',
+              background: 'var(--surface-2)',
+              color: 'rgba(var(--ink),.5)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <XIcon size={15} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+/* ===== components/NotificationPanel.jsx ===== */
+
+/**
+ * Painel de notificações (dropdown ancorado no sino).
+ * Lista pedidos prontos para retirada; marca como "NOVO" os
+ * ainda não vistos.
+ */
+function NotificationPanel({ orders, notifNewIds, onClose, onGoPedidos }) {
+  const ready = orders
+    .filter(isReady)
+    .slice()
+    .sort((a, b) => b.ts + (b.prepMs || 0) - (a.ts + (a.prepMs || 0)));
+
+  const countLabel =
+    ready.length === 0
+      ? 'Sem avisos'
+      : ready.length === 1
+        ? '1 pedido pronto para retirar'
+        : `${ready.length} pedidos prontos para retirar`;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 51,
+          background: 'rgba(8,6,4,.45)',
+          animation: 'sdFade .18s ease',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: '58px',
+          right: '12px',
+          zIndex: 52,
+          width: '320px',
+          maxWidth: 'calc(100% - 24px)',
+          maxHeight: '74%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--sheet)',
+          border: '1px solid rgba(var(--ink),.12)',
+          borderRadius: '18px',
+          boxShadow: '0 24px 58px rgba(0,0,0,.6)',
+          overflow: 'hidden',
+          transformOrigin: '88% 0',
+          animation: 'sdMenuIn .22s cubic-bezier(.2,1,.3,1)',
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: '-6px',
+            right: '44px',
+            width: '12px',
+            height: '12px',
+            background: 'var(--sheet)',
+            borderLeft: '1px solid rgba(var(--ink),.12)',
+            borderTop: '1px solid rgba(var(--ink),.12)',
+            transform: 'rotate(45deg)',
+            borderRadius: '2px 0 0 0',
+          }}
+        />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            padding: '15px 16px 13px',
+            borderBottom: '1px solid rgba(var(--ink),.08)',
+            flex: '0 0 auto',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+            <span
+              style={{
+                fontFamily: "'Bricolage Grotesque'",
+                fontWeight: 800,
+                fontSize: '17px',
+                letterSpacing: '-.3px',
+              }}
+            >
+              Notificações
+            </span>
+            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'rgba(var(--ink),.45)' }}>
+              {countLabel}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            style={{
+              width: '30px',
+              height: '30px',
+              flex: '0 0 auto',
+              border: 'none',
+              background: 'var(--surface-2)',
+              color: 'rgba(var(--ink),.55)',
+              borderRadius: '9px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <XIcon size={15} />
+          </button>
+        </div>
+
+        <div className="sd-scroll" style={{ overflowY: 'auto', flex: '1 1 auto', padding: '6px 0' }}>
+          {ready.length > 0 ? (
+            ready.map((o) => {
+              const isNew = notifNewIds.includes(o.id);
+              return (
+                <button
+                  key={o.id}
+                  onClick={onGoPedidos}
+                  style={{
+                    width: 'calc(100% - 16px)',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    border: 'none',
+                    borderRadius: '13px',
+                    margin: '2px 8px',
+                    padding: '11px 12px',
+                    cursor: 'pointer',
+                    color: 'rgb(var(--ink))',
+                    background: isNew ? 'rgba(182,232,76,.09)' : 'transparent',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: 'rgba(182,232,76,.16)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#b6e84c',
+                      flex: '0 0 auto',
+                    }}
+                  >
+                    <CheckCircleIcon size={19} />
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '13.5px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {o.name ? `Olá ${o.name}, pedido pronto!` : 'Pedido pronto p/ retirada'}
+                      </span>
+                      {isNew && (
+                        <span
+                          style={{
+                            flex: '0 0 auto',
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            letterSpacing: '.6px',
+                            color: '#1a1206',
+                            background: '#b6e84c',
+                            borderRadius: '999px',
+                            padding: '2px 6px',
+                          }}
+                        >
+                          NOVO
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '12px',
+                        color: 'rgba(var(--ink),.5)',
+                        marginTop: '4px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: 800,
+                          color: '#1a1206',
+                          background: '#f5a623',
+                          borderRadius: '6px',
+                          padding: '1px 7px',
+                          fontFamily: "'Bricolage Grotesque'",
+                        }}
+                      >
+                        {o.senha}
+                      </span>
+                      <span>· {formatOrderTime(o.ts + (o.prepMs || 0))}</span>
+                    </span>
+                  </span>
+                  <ChevronRightIcon size={16} style={{ flex: '0 0 auto', stroke: 'rgba(var(--ink),.28)' }} />
+                </button>
+              );
+            })
+          ) : (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '34px 30px 38px',
+                color: 'rgba(var(--ink),.45)',
+                fontSize: '13px',
+                lineHeight: 1.55,
+              }}
+            >
+              <div
+                style={{
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '50%',
+                  background: 'var(--surface-2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 14px',
+                  color: 'rgba(var(--ink),.32)',
+                }}
+              >
+                <BellIcon size={25} stroke={1.8} />
+              </div>
+              <div style={{ fontWeight: 700, color: 'rgba(var(--ink),.6)', fontSize: '13.5px', marginBottom: '4px' }}>
+                Tudo em dia
+              </div>
+              Avisaremos aqui quando seu pedido ficar pronto.
+            </div>
+          )}
+        </div>
+
+        {ready.length > 0 && (
+          <div
+            style={{
+              flex: '0 0 auto',
+              padding: '11px 14px calc(12px + env(safe-area-inset-bottom))',
+              borderTop: '1px solid rgba(var(--ink),.08)',
+              background: 'var(--sheet)',
+            }}
+          >
+            <button
+              onClick={onGoPedidos}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '11px',
+                border: '1px solid rgba(var(--ink),.12)',
+                borderRadius: '11px',
+                background: 'var(--surface-2)',
+                color: 'rgb(var(--ink))',
+                fontFamily: 'Hanken Grotesk',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Ver meus pedidos
+              <ChevronRightIcon size={15} stroke={2.4} />
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+
+/* ===== components/Loading.jsx ===== */
+/** Overlay de carregamento (gerando comanda / enviando solicitação). */
+function Loading({ message, sub }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 40,
+        background: 'var(--bg)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '20px',
+        animation: 'sdFade .2s ease',
+      }}
+    >
+      <div
+        style={{
+          width: '54px',
+          height: '54px',
+          borderRadius: '50%',
+          border: '4px solid rgba(245,166,35,.18)',
+          borderTopColor: '#f5a623',
+          animation: 'sdSpin .8s linear infinite',
+        }}
+      />
+      <div style={{ textAlign: 'center', padding: '0 30px' }}>
+        <div style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '18px' }}>{message}</div>
+        <div style={{ fontSize: '12.5px', color: 'rgba(var(--ink),.5)', marginTop: '6px' }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ===== components/CheckoutSheet.jsx ===== */
+
+/**
+ * Sheet de checkout: itens do carrinho, nome da comanda, momento e
+ * forma de pagamento. `state` e seus setters são controlados pelo App.
+ */
+function CheckoutSheet({ cart, total, checkout, setCheckout, onClose, onConfirm }) {
+  const { payNow, method, custName } = checkout;
+
+  const segPay = {
+    flex: 1,
+    padding: '11px',
+    borderRadius: '11px',
+    cursor: 'pointer',
+    fontFamily: 'Hanken Grotesk',
+    fontWeight: 700,
+    fontSize: '13px',
+    border: '1px solid rgba(var(--ink),.1)',
+  };
+
+  const confirmLabel = payNow
+    ? method === 'pix'
+      ? 'Confirmar e pagar com Pix'
+      : 'Confirmar pedido'
+    : 'Gerar senha';
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(8,6,4,.6)' }} />
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 21,
+          maxHeight: '88%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--sheet)',
+          borderRadius: '22px 22px 0 0',
+          borderTop: '1px solid rgba(var(--ink),.1)',
+          boxShadow: '0 -20px 50px rgba(0,0,0,.5)',
+          animation: 'sdSheet .3s cubic-bezier(.2,.9,.3,1)',
+        }}
+      >
+        <div style={{ padding: '16px 20px 6px', flex: '0 0 auto' }}>
+          <div style={{ width: '38px', height: '4px', borderRadius: '999px', background: 'rgba(var(--ink),.2)', margin: '0 auto 12px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '19px' }}>Seu pedido</span>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(var(--ink),.5)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              fechar
+            </button>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'rgba(245,166,35,.12)',
+              border: '1px solid rgba(245,166,35,.28)',
+              borderRadius: '12px',
+              padding: '11px 13px',
+              marginTop: '12px',
+            }}
+          >
+            <span style={{ display: 'flex', color: '#f5a623', flex: '0 0 auto' }}>
+              <MapPinIcon size={20} />
+            </span>
+            <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#f5a623', lineHeight: 1.35 }}>
+              Somente retirada no local — não fazemos entrega.
+            </span>
+          </div>
+        </div>
+
+        <div className="sd-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '8px 20px 0' }}>
+          {cart.items.map((ci) => (
+            <div key={ci.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: '1px solid rgba(var(--ink),.07)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px' }}>{ci.n}</div>
+                <div style={{ fontSize: '12px', color: 'rgba(var(--ink),.5)', marginTop: '2px' }}>{brl(ci.p * ci.qty)}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--input)', border: '1px solid rgba(var(--ink),.1)', borderRadius: '10px', padding: '3px' }}>
+                <button onClick={() => cart.dec(ci.id)} style={qtyBtn('rgb(var(--ink))')}>−</button>
+                <span style={{ minWidth: '18px', textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>{ci.qty}</span>
+                <button onClick={() => cart.inc(ci.id)} style={qtyBtn('#f5a623')}>+</button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ marginTop: '18px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>Nome para a comanda</div>
+            <input
+              value={custName}
+              onChange={(e) => setCheckout((c) => ({ ...c, custName: e.target.value }))}
+              placeholder="Opcional"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '13px 15px',
+                borderRadius: '12px',
+                background: 'var(--input)',
+                border: '1px solid rgba(var(--ink),.1)',
+                color: 'rgb(var(--ink))',
+                fontFamily: 'Hanken Grotesk',
+                fontSize: '14px',
+                fontWeight: 500,
+              }}
+            />
+          </div>
+
+          <div style={{ marginTop: '16px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>Quando pagar?</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[
+                [true, 'Pagar agora'],
+                [false, 'Pagar na retirada'],
+              ].map(([k, l]) => (
+                <button
+                  key={String(k)}
+                  onClick={() => setCheckout((c) => ({ ...c, payNow: k }))}
+                  style={payNow === k ? { ...segPay, background: '#f5a623', color: '#1a1206', borderColor: '#f5a623' } : { ...segPay, background: 'var(--input)', color: 'rgba(var(--ink),.7)' }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {payNow ? (
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>Forma de pagamento</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  ['pix', 'Pix'],
+                  ['cartao', 'Cartão'],
+                  ['especie', 'Espécie'],
+                ].map(([k, l]) => (
+                  <button
+                    key={k}
+                    onClick={() => setCheckout((c) => ({ ...c, method: k }))}
+                    style={method === k ? { ...segPay, background: 'var(--surface-2)', color: '#f5a623', borderColor: '#f5a623' } : { ...segPay, background: 'var(--input)', color: 'rgba(var(--ink),.7)' }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: '14px', fontSize: '12px', lineHeight: 1.5, color: 'rgba(var(--ink),.5)', background: 'var(--surface-2)', borderRadius: '11px', padding: '11px 13px' }}>
+              Você paga na retirada — Pix, cartão ou espécie no trailer.
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: '0 0 auto', padding: '16px 20px calc(16px + env(safe-area-inset-bottom))', borderTop: '1px solid rgba(var(--ink),.08)', background: 'var(--sheet)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>Total · retirada no local</span>
+            <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '24px' }}>{brl(total)}</span>
+          </div>
+          <button
+            onClick={onConfirm}
+            style={{
+              width: '100%',
+              padding: '16px',
+              border: 'none',
+              borderRadius: '14px',
+              background: '#f5a623',
+              color: '#1a1206',
+              fontFamily: 'Hanken Grotesk',
+              fontWeight: 800,
+              fontSize: '15px',
+              cursor: 'pointer',
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function qtyBtn(color) {
+  return {
+    width: '28px',
+    height: '28px',
+    border: 'none',
+    background: 'none',
+    color,
+    cursor: 'pointer',
+    fontSize: '18px',
+    borderRadius: '7px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+}
+
+
+/* ===== components/OrderSuccess.jsx ===== */
+
+/** Tela de sucesso do pedido — exibe a senha grande e o resumo. */
+function OrderSuccess({ order, onClose }) {
+  const ml = PAYMENT_LABELS[order.method];
+  const payStatus = order.payNow ? `Pago via ${ml}` : 'Pagar na retirada';
+  const payDot = order.payNow ? '#b6e84c' : '#f5a623';
+  const payBg = order.payNow ? 'rgba(182,232,76,.1)' : 'rgba(245,166,35,.1)';
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <div
+        className="sd-scroll"
+        style={{ flex: 1, overflowY: 'auto', padding: '30px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+      >
+        <div style={{ position: 'relative', marginTop: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ position: 'absolute', width: '64px', height: '64px', borderRadius: '50%', border: '2px solid #b6e84c', animation: 'sdRingPulse .85s ease-out forwards' }} />
+          <span style={{ position: 'absolute', width: '64px', height: '64px', borderRadius: '50%', border: '2px solid #b6e84c', animation: 'sdRingPulse .85s ease-out .18s forwards' }} />
+          <div
+            style={{
+              position: 'relative',
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(182,232,76,.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'sdCheckPop .5s cubic-bezier(.18,1.35,.4,1) both',
+            }}
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#b6e84c" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" style={{ strokeDasharray: 26, strokeDashoffset: 26, animation: 'sdCheckDraw .42s ease .2s forwards' }} />
+            </svg>
+          </div>
+        </div>
+
+        <h2 style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '24px', margin: '16px 0 4px' }}>Pedido confirmado!</h2>
+        <p style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)', margin: '0 0 22px', maxWidth: '280px', lineHeight: 1.5 }}>
+          Mostre sua senha no trailer para retirar. Acompanhe a comanda pelo painel do balcão.
+        </p>
+
+        <div style={{ width: '100%', background: 'linear-gradient(135deg,#f5a623,#e8890c)', borderRadius: '18px', padding: '22px', color: '#1a1206', boxShadow: '0 14px 36px rgba(245,166,35,.3)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '2px', opacity: 0.7 }}>SUA SENHA</div>
+          <div style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '64px', lineHeight: 1, margin: '6px 0 4px', letterSpacing: '1px' }}>{order.senha}</div>
+          {order.name && <div style={{ fontSize: '14px', fontWeight: 700 }}>{order.name}</div>}
+        </div>
+
+        <div style={{ width: '100%', background: 'var(--surface)', border: '1px solid rgba(var(--ink),.08)', borderRadius: '16px', padding: '16px', marginTop: '16px', textAlign: 'left' }}>
+          {order.items.map((oi) => (
+            <div key={oi.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '5px 0', fontSize: '13px' }}>
+              <span style={{ color: 'rgba(var(--ink),.75)' }}>{oi.qty}× {oi.n}</span>
+              <span style={{ fontWeight: 700 }}>{brl(oi.p * oi.qty)}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(var(--ink),.08)' }}>
+            <span style={{ fontWeight: 700, fontSize: '15px' }}>Total</span>
+            <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '18px' }}>{brl(order.total)}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', padding: '10px 12px', background: payBg, borderRadius: '11px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: payDot }} />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: payDot }}>{payStatus}</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', color: 'rgba(var(--ink),.5)' }}>
+          <MapPinIcon size={15} />
+          <span style={{ fontSize: '12px', fontWeight: 600 }}>Retirada no trailer · Av. Boa Viagem, 1500</span>
+        </div>
+      </div>
+
+      <div style={{ flex: '0 0 auto', padding: '16px 20px calc(16px + env(safe-area-inset-bottom))', borderTop: '1px solid rgba(var(--ink),.08)' }}>
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            padding: '15px',
+            border: '1px solid rgba(var(--ink),.15)',
+            borderRadius: '14px',
+            background: 'var(--surface-2)',
+            color: 'rgb(var(--ink))',
+            fontFamily: 'Hanken Grotesk',
+            fontWeight: 800,
+            fontSize: '14px',
+            cursor: 'pointer',
+          }}
+        >
+          Fazer novo pedido
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/* ===== components/EventConfirm.jsx ===== */
+
+/** Modal de confirmação da solicitação de evento. */
+function EventConfirm({ data, onClose }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 30,
+        background: 'rgba(8,6,4,.72)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          background: 'var(--surface)',
+          border: '1px solid rgba(var(--ink),.1)',
+          borderRadius: '22px',
+          padding: '28px 22px',
+          textAlign: 'center',
+          animation: 'sdModalIn .3s cubic-bezier(.2,1,.3,1)',
+        }}
+      >
+        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(245,166,35,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#f5a623' }}>
+          <SendIcon size={28} />
+        </div>
+        <h2 style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '22px', margin: '0 0 8px' }}>Solicitação enviada!</h2>
+        <p style={{ fontSize: '13px', lineHeight: 1.55, color: 'rgba(var(--ink),.6)', margin: '0 0 18px' }}>
+          Recebemos seu pedido para <b style={{ color: 'rgb(var(--ink))' }}>{data.date}</b> · {data.slot}. Em até{' '}
+          <b style={{ color: '#f5a623' }}>24 horas</b> sua agenda será processada.
+        </p>
+        <div style={{ background: 'var(--surface-2)', borderRadius: '13px', padding: '14px', marginBottom: '16px', textAlign: 'left' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '9px' }}>
+            <span style={{ display: 'flex', color: '#b6e84c' }}>
+              <CircleCheckBigIcon size={17} />
+            </span>
+            <span style={{ fontSize: '12px', lineHeight: 1.4, color: 'rgba(var(--ink),.7)' }}>
+              Nossa equipe entrará em contato pelo <b style={{ color: 'rgb(var(--ink))' }}>WhatsApp {data.contact}</b> para confirmar.
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '9px', borderTop: '1px solid rgba(var(--ink),.07)' }}>
+            <span style={{ fontSize: '11px', color: 'rgba(var(--ink),.45)' }}>Protocolo</span>
+            <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '13px', letterSpacing: '.5px' }}>{data.protocolo}</span>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            padding: '14px',
+            border: 'none',
+            borderRadius: '13px',
+            background: '#f5a623',
+            color: '#1a1206',
+            fontFamily: 'Hanken Grotesk',
+            fontWeight: 800,
+            fontSize: '14px',
+            cursor: 'pointer',
+          }}
+        >
+          Entendi
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/* ===== screens/events/Calendar.jsx ===== */
+
+/**
+ * Calendário de disponibilidade. Dias livres/parciais são clicáveis;
+ * ocupados e passados ficam desabilitados.
+ * Props: year, month, selectedDay, onSelectDay, onPrev, onNext.
+ */
+function Calendar({ year: y, month: m, selectedDay, onSelectDay, onPrev, onNext }) {
+  const first = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const atMinMonth = y === 2026 && m <= 5;
+
+  const cellBase = {
+    aspectRatio: '1 / 1',
+    borderRadius: '11px',
+    border: '1px solid transparent',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '3px',
+    fontFamily: 'Hanken Grotesk',
+    fontWeight: 700,
+    fontSize: '14px',
+  };
+
+  const cells = [];
+  for (let i = 0; i < first; i++) {
+    cells.push(<span key={'x' + i} style={{ ...cellBase, visibility: 'hidden' }} />);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const st = statusOf(y, m, d);
+    const sel = selectedDay === d;
+    const clickable = st === 'livre' || st === 'parcial';
+    let style;
+    if (st === 'past') style = { ...cellBase, background: 'transparent', color: 'rgba(var(--ink),.18)', cursor: 'default' };
+    else if (st === 'ocupado') style = { ...cellBase, background: 'rgba(226,59,59,.08)', color: 'rgba(var(--ink),.3)', cursor: 'not-allowed' };
+    else if (sel) style = { ...cellBase, background: '#f5a623', color: '#1a1206', cursor: 'pointer' };
+    else style = { ...cellBase, background: 'var(--surface-2)', color: 'rgb(var(--ink))', cursor: 'pointer' };
+    const showDot = (st === 'livre' || st === 'parcial' || st === 'ocupado') && !sel;
+    cells.push(
+      <button key={d} onClick={clickable ? () => onSelectDay(d) : undefined} style={style}>
+        <span>{d}</span>
+        {showDot && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: STATUS_COLOR[st] }} />}
+      </button>,
+    );
+  }
+
+  const navBtn = (disabled) => ({
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    background: disabled ? 'var(--bg)' : 'var(--surface-2)',
+    border: '1px solid rgba(var(--ink),.08)',
+    color: disabled ? 'rgba(var(--ink),.2)' : 'rgb(var(--ink))',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: disabled ? 'default' : 'pointer',
+  });
+
+  return (
+    <div style={{ background: 'var(--bg-2)', border: '1px solid rgba(var(--ink),.08)', borderRadius: '18px', padding: '16px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <button onClick={atMinMonth ? undefined : onPrev} style={navBtn(atMinMonth)}>
+          <ChevronLeftIcon size={18} />
+        </button>
+        <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '16px' }}>
+          {MESES[m]} {y}
+        </span>
+        <button onClick={onNext} style={navBtn(false)}>
+          <ChevronRightIcon size={18} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px', marginBottom: '6px' }}>
+        {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((w, i) => (
+          <span key={i} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, color: 'rgba(var(--ink),.35)' }}>
+            {w}
+          </span>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px' }}>{cells}</div>
+
+      <div style={{ display: 'flex', gap: '14px', marginTop: '14px', paddingTop: '13px', borderTop: '1px solid rgba(var(--ink),.07)' }}>
+        {[
+          ['Livre', '#b6e84c'],
+          ['Parcial', '#f5a623'],
+          ['Ocupado', '#e23b3b'],
+        ].map(([label, color]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+            <span style={{ fontSize: '11px', color: 'rgba(var(--ink),.6)' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+/* ===== screens/events/EventsScreen.jsx ===== */
+
+const TIPOS = ['Casamento', 'Aniversário', 'Corporativo', 'Formatura', 'Confraternização', 'Outro'];
+const SLOT_BASE = [
+  ['Tarde', '14h às 18h'],
+  ['Noite', '19h às 23h'],
+  ['Madrugada', '23h às 03h'],
+];
+
+/**
+ * Aba Eventos: agenda de disponibilidade + formulário de contratação.
+ * Ao enviar, chama `onSubmit({ protocolo, date, slot, contact })`
+ * — o App exibe o loading e o modal de confirmação.
+ */
+function EventsScreen({ onSubmit }) {
+  const [year, setYear] = useState(2026);
+  const [month, setMonth] = useState(5);
+  const [day, setDay] = useState(null);
+  const [slot, setSlot] = useState(null);
+  const [ev, setEv] = useState({ nome: '', tel: '', email: '', tipo: 'Casamento', pessoas: '', local: '', obs: '' });
+
+  const onEv = (field) => (e) => {
+    const v = e.target.value;
+    setEv((prev) => ({ ...prev, [field]: v }));
+  };
+
+  function selectDay(d) {
+    setDay(d);
+    setSlot(null);
+  }
+  function prevMonth() {
+    if (year === 2026 && month <= 5) return;
+    setMonth((m) => (m === 0 ? 11 : m - 1));
+    if (month === 0) setYear((y) => y - 1);
+    setDay(null);
+    setSlot(null);
+  }
+  function nextMonth() {
+    setMonth((m) => (m === 11 ? 0 : m + 1));
+    if (month === 11) setYear((y) => y + 1);
+    setDay(null);
+    setSlot(null);
+  }
+
+  // Horários do dia selecionado (o segundo horário fica ocupado em dias parciais).
+  let slots = [];
+  if (day != null) {
+    const st = statusOf(year, month, day);
+    if (st === 'livre' || st === 'parcial') {
+      slots = SLOT_BASE.map(([label, time], i) => ({ label, time, taken: st === 'parcial' && i === 1 }));
+    }
+  }
+  const hasDay = day != null && slots.length > 0;
+
+  const canSubmit = !!(ev.nome && ev.tel && day != null && slot);
+
+  function submit() {
+    if (!canSubmit) return;
+    const protocolo = 'SD-' + String(day).padStart(2, '0') + MESES_ABR[month].toUpperCase() + '-' + (Math.floor(Math.random() * 900) + 100);
+    onSubmit({ protocolo, date: `${day} de ${MESES[month]}`, slot, contact: ev.tel });
+  }
+
+  const inputStyle = {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '13px 15px',
+    borderRadius: '12px',
+    background: 'var(--input)',
+    border: '1px solid rgba(var(--ink),.1)',
+    color: 'rgb(var(--ink))',
+    fontFamily: 'Hanken Grotesk',
+    fontSize: '14px',
+    fontWeight: 500,
+  };
+  const tipoBase = {
+    padding: '9px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    fontFamily: 'Hanken Grotesk',
+    fontWeight: 700,
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+    flex: '0 0 auto',
+    border: '1px solid rgba(var(--ink),.1)',
+  };
+
+  return (
+    <div style={{ padding: '6px 20px 0' }}>
+      <span style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '3px', color: '#f5a623' }}>AGENDAMENTO</span>
+      <h2 style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '26px', margin: '8px 0 6px', letterSpacing: '-.5px' }}>
+        Contrate a equipe
+      </h2>
+      <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(var(--ink),.55)', margin: '0 0 18px' }}>
+        Barmans e o trailer no seu evento — casamentos, aniversários, festas e corporativos. Escolha uma data livre na agenda.
+      </p>
+
+      <Calendar
+        year={year}
+        month={month}
+        selectedDay={day}
+        onSelectDay={selectDay}
+        onPrev={prevMonth}
+        onNext={nextMonth}
+      />
+
+      {hasDay ? (
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '10px' }}>Horários para {day} de {MESES[month]}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+            {slots.map(({ label, time, taken }) => {
+              const sel = slot === label;
+              const sBase = {
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '13px 15px',
+                borderRadius: '13px',
+                cursor: taken ? 'not-allowed' : 'pointer',
+                fontFamily: 'Hanken Grotesk',
+                textAlign: 'left',
+                border: '1px solid rgba(var(--ink),.1)',
+                color: 'rgb(var(--ink))',
+              };
+              let style;
+              if (taken) style = { ...sBase, background: 'rgba(226,59,59,.07)', color: 'rgba(var(--ink),.4)', borderColor: 'transparent' };
+              else if (sel) style = { ...sBase, background: 'rgba(245,166,35,.14)', borderColor: '#f5a623' };
+              else style = { ...sBase, background: 'var(--surface)' };
+              return (
+                <button key={label} onClick={taken ? undefined : () => setSlot(label)} style={style}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '0 0 auto',
+                        border: sel ? '2px solid #f5a623' : taken ? '2px solid rgba(var(--ink),.15)' : '2px solid rgba(var(--ink),.28)',
+                      }}
+                    >
+                      {sel && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f5a623' }} />}
+                    </span>
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{label}</span>
+                      <span style={{ fontSize: '11px', opacity: 0.7 }}>{time}</span>
+                    </span>
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      background: taken ? 'rgba(226,59,59,.16)' : 'rgba(182,232,76,.16)',
+                      color: taken ? '#e23b3b' : '#b6e84c',
+                    }}
+                  >
+                    {taken ? 'Ocupado' : 'Livre'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+            <div style={{ fontWeight: 700, fontSize: '13px' }}>Dados do evento</div>
+            <input value={ev.nome} onChange={onEv('nome')} placeholder="Seu nome *" style={inputStyle} />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input value={ev.tel} onChange={onEv('tel')} placeholder="WhatsApp *" style={inputStyle} />
+              <input value={ev.pessoas} onChange={onEv('pessoas')} placeholder="Nº pessoas" style={inputStyle} />
+            </div>
+            <input value={ev.email} onChange={onEv('email')} placeholder="E-mail" style={inputStyle} />
+            <input value={ev.local} onChange={onEv('local')} placeholder="Local / endereço do evento" style={inputStyle} />
+
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>Tipo de evento</div>
+              <div className="sd-scroll" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+                {TIPOS.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setEv((prev) => ({ ...prev, tipo: t }))}
+                    style={
+                      ev.tipo === t
+                        ? { ...tipoBase, background: '#f5a623', color: '#1a1206', borderColor: '#f5a623' }
+                        : { ...tipoBase, background: 'var(--surface)', color: 'rgba(var(--ink),.7)' }
+                    }
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>Conte sobre o evento</div>
+              <textarea
+                value={ev.obs}
+                onChange={onEv('obs')}
+                placeholder="Tipo de pacote, bebidas desejadas, duração, estrutura do local, nº de bartenders..."
+                rows={4}
+                style={{ ...inputStyle, minHeight: '94px', lineHeight: 1.5, resize: 'none', boxShadow: 'inset 0 2px 5px rgba(0,0,0,.18)' }}
+              />
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'rgba(245,166,35,.1)',
+                border: '1px solid rgba(245,166,35,.24)',
+                borderRadius: '12px',
+                padding: '12px 13px',
+              }}
+            >
+              <span style={{ display: 'flex', color: '#f5a623', flex: '0 0 auto' }}>
+                <PhoneIcon size={19} />
+              </span>
+              <span style={{ fontSize: '12.5px', fontWeight: 600, lineHeight: 1.4, color: 'rgba(var(--ink),.75)' }}>
+                Nossa equipe entrará em contato para confirmação.
+              </span>
+            </div>
+
+            <button
+              onClick={submit}
+              disabled={!canSubmit}
+              style={{
+                width: '100%',
+                padding: '15px',
+                border: 'none',
+                borderRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '9px',
+                background: canSubmit ? '#f5a623' : 'var(--surface-2)',
+                color: canSubmit ? '#1a1206' : 'rgba(var(--ink),.4)',
+                fontFamily: 'Hanken Grotesk',
+                fontWeight: 800,
+                fontSize: '15px',
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
+                boxShadow: canSubmit ? '0 8px 22px rgba(245,166,35,.28)' : 'none',
+                transition: 'background-color .2s ease, box-shadow .2s ease',
+              }}
+            >
+              <CalendarCheckIcon size={18} />
+              Solicitar agendamento
+            </button>
+            <p style={{ fontSize: '11px', lineHeight: 1.5, color: 'rgba(var(--ink),.4)', textAlign: 'center', margin: 0 }}>
+              Sua solicitação é analisada em até 24h. Nossa equipe entrará em contato para confirmar.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '14px 20px 30px', color: 'rgba(var(--ink),.4)', fontSize: '13px' }}>
+          Selecione um dia livre ou parcial para ver os horários.
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ===== screens/MenuScreen.jsx ===== */
+
+/** Cardápio: destaques, busca, filtros por categoria e lista agrupada. */
+function MenuScreen({ featured, onAdd, qtyOf }) {
+  const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('Todos');
+  const q = search.trim().toLowerCase();
+
+  const chips = [{ name: 'Todos', color: '#f5a623', todos: true }, ...MENU.map((c) => ({ name: c.name, color: c.color }))];
+
+  const filteredCats = useMemo(
+    () =>
+      MENU.filter((c) => cat === 'Todos' || cat === c.name)
+        .map((c) => {
+          const items = c.items.filter(
+            (it) => !q || it.n.toLowerCase().includes(q) || it.d.toLowerCase().includes(q),
+          );
+          return items.length ? { ...c, count: items.length, items } : null;
+        })
+        .filter(Boolean),
+    [cat, q],
+  );
+
+  const chipBase = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '7px',
+    padding: '8px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    fontFamily: 'Hanken Grotesk',
+    fontWeight: 700,
+    fontSize: '13px',
+    whiteSpace: 'nowrap',
+    flex: '0 0 auto',
+    border: '1px solid rgba(var(--ink),.1)',
+  };
+
+  return (
+    <div style={{ padding: '2px 0 0' }}>
+      {/* Mais pedidas */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 20px 14px' }}>
+        <span style={{ display: 'flex', color: '#f5a623' }}>
+          <TrendingUpIcon size={18} />
+        </span>
+        <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '18px' }}>Mais pedidas</span>
+        <span
+          style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            color: 'rgba(var(--ink),.4)',
+            marginLeft: 'auto',
+            paddingRight: '20px',
+          }}
+        >
+          os queridinhos
+        </span>
+      </div>
+      <div
+        className="sd-scroll"
+        style={{
+          display: 'flex',
+          gap: '13px',
+          overflowX: 'auto',
+          padding: '0 20px 16px',
+          scrollSnapType: 'x mandatory',
+        }}
+      >
+        {featured.map((it, i) => (
+          <div
+            key={it.id}
+            style={{
+              flex: '0 0 196px',
+              width: '196px',
+              scrollSnapAlign: 'start',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '18px',
+              overflow: 'hidden',
+              background: 'var(--surface)',
+              border: '1px solid rgba(var(--ink),.08)',
+            }}
+          >
+            <div style={{ position: 'relative', width: '100%', height: '110px', background: 'var(--input)' }}>
+              <ImageSlot
+                id={'feat-' + it.id}
+                shape="rect"
+                fit="cover"
+                placeholder="Adicionar foto"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+              />
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  left: '8px',
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#fff',
+                  background: 'rgba(0,0,0,.55)',
+                  backdropFilter: 'blur(4px)',
+                  borderRadius: '999px',
+                  padding: '3px 9px',
+                }}
+              >
+                {i + 1}º
+              </span>
+            </div>
+            <div style={{ padding: '12px 13px 13px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.3px', color: 'rgba(var(--ink),.5)' }}>
+                {it.v}
+              </span>
+              <span
+                style={{
+                  fontFamily: "'Bricolage Grotesque'",
+                  fontWeight: 800,
+                  fontSize: '17px',
+                  lineHeight: 1.1,
+                  letterSpacing: '-.3px',
+                  flex: 1,
+                }}
+              >
+                {it.n}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '17px', color: it.color }}>
+                  {brl(it.p)}
+                </span>
+                <button onClick={() => onAdd(it)} style={addBtn(36, 11)}>
+                  <PlusIcon size={19} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Busca + chips */}
+      <div style={{ padding: '6px 20px 0' }}>
+        <div style={{ position: 'relative', marginBottom: '14px' }}>
+          <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', display: 'flex', color: 'rgba(var(--ink),.4)' }}>
+            <SearchIcon size={17} />
+          </span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar bebida..."
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '14px 16px 14px 42px',
+              borderRadius: '14px',
+              background: 'var(--input)',
+              border: 'none',
+              boxShadow: 'inset 0 2px 5px rgba(0,0,0,.26), inset 0 0 0 1px rgba(var(--ink),.06), 0 1px 0 rgba(var(--ink),.05)',
+              color: 'rgb(var(--ink))',
+              fontFamily: 'Hanken Grotesk',
+              fontSize: '14px',
+              fontWeight: 500,
+            }}
+          />
+        </div>
+
+        <div
+          className="sd-scroll"
+          style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '2px 20px 4px', margin: '0 -20px 18px' }}
+        >
+          {chips.map((c) => {
+            const sel = cat === c.name;
+            const selBg = c.color;
+            return (
+              <button
+                key={c.name}
+                onClick={() => setCat(c.name)}
+                style={
+                  sel
+                    ? { ...chipBase, background: selBg, color: '#1a1206', borderColor: selBg }
+                    : { ...chipBase, background: 'var(--surface)', color: 'rgba(var(--ink),.75)' }
+                }
+              >
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    background: sel ? 'rgba(26,18,6,.45)' : c.color,
+                  }}
+                />
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Lista */}
+      {filteredCats.length > 0 ? (
+        <div style={{ padding: '0 20px' }}>
+          {filteredCats.map((c) => (
+            <div key={c.name} style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: c.color, boxShadow: `0 0 10px ${c.color}` }} />
+                <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '18px' }}>{c.name}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(var(--ink),.35)', marginLeft: '2px' }}>{c.count}</span>
+              </div>
+              {c.items.map((it) => {
+                const qty = qtyOf(it.id);
+                return (
+                  <div
+                    key={it.id}
+                    style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid rgba(var(--ink),.07)' }}
+                  >
+                    <ImageSlot
+                      id={'item-' + it.id}
+                      shape="rounded"
+                      radius={15}
+                      fit="cover"
+                      placeholder="Foto"
+                      style={{ width: '72px', height: '72px', flex: '0 0 auto' }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '15px' }}>{it.n}</span>
+                        {qty > 0 && (
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#1a1206', background: '#b6e84c', borderRadius: '999px', padding: '1px 7px' }}>
+                            {qty}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '.4px', color: it.color, marginTop: '3px' }}>{it.v}</div>
+                      {it.d && (
+                        <div style={{ fontSize: '12px', lineHeight: 1.45, color: 'rgba(var(--ink),.5)', marginTop: '5px' }}>{it.d}</div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                      <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '15px', whiteSpace: 'nowrap' }}>{brl(it.p)}</span>
+                      <button onClick={() => onAdd(it)} style={addBtn(34, 10)}>
+                        <PlusIcon size={18} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '40px 30px', color: 'rgba(var(--ink),.4)', fontSize: '14px' }}>
+          Nenhuma bebida encontrada.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function addBtn(size, radius) {
+  return {
+    width: size + 'px',
+    height: size + 'px',
+    border: 'none',
+    borderRadius: radius + 'px',
+    background: '#f5a623',
+    color: '#1a1206',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flex: '0 0 auto',
+  };
+}
+
+
+/* ===== screens/OrdersScreen.jsx ===== */
+
+/** Aba "Meus pedidos": lista de comandas com senha e status. */
+function OrdersScreen({ orders, onGoCardapio }) {
+  return (
+    <div style={{ padding: '6px 20px 0' }}>
+      <span style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '3px', color: '#f5a623' }}>SUAS COMANDAS</span>
+      <h2 style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '26px', margin: '8px 0 16px', letterSpacing: '-.5px' }}>
+        Meus pedidos
+      </h2>
+
+      {orders.length > 0 ? (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+            {orders.map((o) => {
+              const preparing = !isReady(o);
+              const ml = PAYMENT_LABELS[o.method] || '';
+              return (
+                <div
+                  key={o.id}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid rgba(var(--ink),.08)',
+                    borderRadius: '18px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'stretch',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: 'linear-gradient(160deg,#f5a623,#e8890c)',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      minWidth: '92px',
+                    }}
+                  >
+                    <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '1.5px', color: 'rgba(26,18,6,.6)' }}>SENHA</span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '34px', lineHeight: 1, color: '#1a1206' }}>
+                      {o.senha}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          background: preparing ? 'rgba(245,166,35,.16)' : 'rgba(182,232,76,.16)',
+                          color: preparing ? '#f5a623' : '#b6e84c',
+                        }}
+                      >
+                        {preparing ? 'Em preparo' : 'Pronto p/ retirada'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'rgba(var(--ink),.4)', whiteSpace: 'nowrap' }}>{formatOrderTime(o.ts)}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', lineHeight: 1.4, color: 'rgba(var(--ink),.6)' }}>
+                      {o.items.map((it) => `${it.qty}× ${it.n}`).join(', ')}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: o.payNow ? '#b6e84c' : '#f5a623' }} />
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: o.payNow ? '#b6e84c' : '#f5a623' }}>
+                          {o.payNow ? `Pago · ${ml}` : 'Pagar na retirada'}
+                        </span>
+                      </span>
+                      <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '16px' }}>{brl(o.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: '11px', lineHeight: 1.5, color: 'rgba(var(--ink),.4)', textAlign: 'center', margin: '18px 0 4px' }}>
+            Mostre a senha no trailer para retirar. Suas comandas ficam salvas neste aparelho.
+          </p>
+        </>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '36px 24px' }}>
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'var(--surface)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: 'rgba(var(--ink),.3)',
+            }}
+          >
+            <CupIcon size={30} />
+          </div>
+          <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>Nenhum pedido ainda</div>
+          <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(var(--ink),.45)', margin: '0 0 18px' }}>
+            Faça seu primeiro pedido no cardápio e acompanhe a senha por aqui.
+          </p>
+          <button
+            onClick={onGoCardapio}
+            style={{
+              padding: '13px 22px',
+              border: 'none',
+              borderRadius: '13px',
+              background: '#f5a623',
+              color: '#1a1206',
+              fontFamily: 'Hanken Grotesk',
+              fontWeight: 800,
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Ver cardápio
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ===== screens/ContactScreen.jsx ===== */
+
+const MAP_SRC =
+  'https://www.google.com/maps?q=Av.%20Boa%20Viagem%2C%201500%2C%20Pina%2C%20Recife%20-%20PE&z=15&output=embed';
+
+/** Aba Contato: mapa do trailer, canais de contato e horário. */
+function ContactScreen() {
+  const cardLink = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '13px',
+    textDecoration: 'none',
+    color: 'rgb(var(--ink))',
+    background: 'var(--surface)',
+    border: '1px solid rgba(var(--ink),.08)',
+    borderRadius: '14px',
+    padding: '14px 15px',
+  };
+  const iconBox = (bg, color) => ({
+    width: '40px',
+    height: '40px',
+    borderRadius: '11px',
+    background: bg,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color,
+    flex: '0 0 auto',
+  });
+
+  return (
+    <div style={{ padding: '6px 20px 0' }}>
+      <span style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '3px', color: '#f5a623' }}>ONDE ESTAMOS</span>
+      <h2 style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '26px', margin: '8px 0 16px', letterSpacing: '-.5px' }}>
+        Fale com a gente
+      </h2>
+
+      <div
+        style={{
+          position: 'relative',
+          height: '172px',
+          borderRadius: '18px',
+          overflow: 'hidden',
+          border: '1px solid rgba(var(--ink),.08)',
+          marginBottom: '6px',
+          background: 'var(--input)',
+        }}
+      >
+        <iframe
+          title="Localização do trailer Summer Drinks"
+          src={MAP_SRC}
+          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        <span
+          style={{
+            position: 'absolute',
+            left: '10px',
+            bottom: '10px',
+            zIndex: 2,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: '#fff',
+            background: 'rgba(0,0,0,.62)',
+            backdropFilter: 'blur(4px)',
+            padding: '5px 11px',
+            borderRadius: '999px',
+          }}
+        >
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#f5a623' }} />
+          Trailer Summer Drinks
+        </span>
+      </div>
+
+      <div
+        style={{
+          background: 'var(--bg-2)',
+          border: '1px solid rgba(var(--ink),.08)',
+          borderRadius: '0 0 16px 16px',
+          borderTop: 'none',
+          padding: '14px 16px',
+          marginBottom: '14px',
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: '14px' }}>Av. Boa Viagem, 1500 — Pina</div>
+        <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)', marginTop: '2px' }}>Recife · PE</div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(var(--ink),.07)' }}>
+          <span style={{ display: 'flex', color: '#f5a623', marginTop: '1px' }}>
+            <ClockIcon size={15} />
+          </span>
+          <span style={{ fontSize: '12px', lineHeight: 1.45, color: 'rgba(var(--ink),.6)' }}>
+            Somos um trailer — a localização pode mudar em eventos. Confirme sempre pelo WhatsApp antes de sair.
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <a href="https://wa.me/5581999990000" target="_blank" rel="noreferrer" style={cardLink}>
+          <span style={iconBox('rgba(182,232,76,.14)', '#b6e84c')}>
+            <WhatsappIcon size={20} />
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>WhatsApp</div>
+            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>(81) 9 9999-0000</div>
+          </div>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: '#1a1206', background: '#b6e84c', borderRadius: '999px', padding: '7px 14px' }}>
+            Chamar
+          </span>
+        </a>
+
+        <a href="tel:+5581999990000" style={cardLink}>
+          <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
+            <PhoneIcon size={19} />
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>Telefone</div>
+            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>(81) 3333-0000</div>
+          </div>
+        </a>
+
+        <a href="mailto:contato@summerdrinks.com.br" style={cardLink}>
+          <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
+            <MailIcon size={19} />
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>E-mail</div>
+            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>contato@summerdrinks.com.br</div>
+          </div>
+        </a>
+
+        <div style={{ ...cardLink, cursor: 'default' }}>
+          <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
+            <ClockIcon size={19} />
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>Funcionamento</div>
+            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>Sex a Dom · 18h às 02h</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', justifyContent: 'center', margin: '18px 0 4px', color: 'rgba(var(--ink),.5)' }}>
+        <InstagramIcon size={16} />
+        <span style={{ fontSize: '13px', fontWeight: 600 }}>@summerdrinks</span>
+      </div>
+      <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, letterSpacing: '1px', color: '#f5a623', padding: '6px 0 4px' }}>
+        SOMENTE RETIRADA NO LOCAL
+      </div>
+    </div>
+  );
+}
+
+
+/* ===== App.jsx ===== */
+
+
+
+/**
+ * App raiz do Summer Drinks.
+ *
+ * Props (todas opcionais):
+ *  - defaultTab      'cardapio' | 'pedidos' | 'eventos' | 'contato'
+ *  - temaInicial     'escuro' | 'claro'  (usado se não houver preferência salva)
+ *  - aberta          boolean — status Aberto/Fechado no cabeçalho
+ *  - payNowDefault   boolean — "Pagar agora" pré-selecionado no checkout
+ *  - prepSegundos    number  — tempo de preparo até o pedido ficar pronto
+ */
+function App({
+  defaultTab = 'cardapio',
+  temaInicial = 'escuro',
+  aberta = true,
+  payNowDefault = true,
+  prepSegundos = 12,
+}) {
+  const [tab, setTab] = useState(defaultTab);
+  const { dark, toggle } = useTheme(temaInicial);
+  const cart = useCart();
+  const { orders, addOrder, seen, markSeen, toasts, dismissToast, notifNewIds, setNotifNewIds } = useOrders();
+
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkout, setCheckout] = useState({ payNow: payNowDefault, method: 'pix', custName: '' });
+  const [order, setOrder] = useState(null); // pedido confirmado (tela de sucesso)
+  const [evConfirm, setEvConfirm] = useState(null);
+  const [loading, setLoading] = useState(null); // 'order' | 'event' | null
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const readyOrders = orders.filter(isReady);
+  const unreadCount = readyOrders.filter((o) => !seen.includes(o.id)).length;
+
+  function confirmOrder() {
+    if (!cart.items.length) return;
+    const senha = 'ABCDEFGH'[Math.floor(Math.random() * 8)] + String(Math.floor(Math.random() * 90) + 10);
+    const prepMs = Math.max(3, prepSegundos) * 1000;
+    const newOrder = {
+      id: Date.now(),
+      ts: Date.now(),
+      prepMs,
+      senha,
+      items: cart.items,
+      total: cart.total,
+      method: checkout.method,
+      payNow: checkout.payNow,
+      name: checkout.custName,
+    };
+    setCheckoutOpen(false);
+    setLoading('order');
+    setTimeout(() => {
+      addOrder(newOrder);
+      cart.clear();
+      setOrder(newOrder);
+      setLoading(null);
+    }, 1100);
+  }
+
+  function submitEvent(data) {
+    setLoading('event');
+    setTimeout(() => {
+      setEvConfirm(data);
+      setLoading(null);
+    }, 1100);
+  }
+
+  function openBell() {
+    const newIds = readyOrders.filter((o) => !seen.includes(o.id)).map((o) => o.id);
+    markSeen(readyOrders.map((o) => o.id));
+    setNotifNewIds(newIds);
+    setNotifOpen(true);
+  }
+
+  const showCartBar = cart.items.length > 0 && !checkoutOpen && !order;
+
+  return (
+    <div
+      className="sd-app"
+      data-theme={dark ? 'dark' : 'light'}
+      style={{
+        minHeight: '100vh',
+        background: 'radial-gradient(120% 80% at 50% 0%, var(--backdrop-2) 0%, var(--backdrop) 60%)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'stretch',
+        fontFamily: "'Hanken Grotesk',sans-serif",
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '440px',
+          minHeight: '640px',
+          height: '100dvh',
+          background: 'var(--bg)',
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 0 90px rgba(0,0,0,.7)',
+          color: 'rgb(var(--ink))',
+        }}
+      >
+        <Header
+          open={aberta}
+          dark={dark}
+          onToggleTheme={toggle}
+          unreadCount={unreadCount}
+          onBell={openBell}
+        />
+
+        <main className="sd-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '0 0 150px' }}>
+          {tab === 'cardapio' && <MenuScreen featured={FEATURED} onAdd={cart.add} qtyOf={cart.qtyOf} />}
+          {tab === 'pedidos' && <OrdersScreen orders={orders} onGoCardapio={() => setTab('cardapio')} />}
+          {tab === 'eventos' && <EventsScreen onSubmit={submitEvent} />}
+          {tab === 'contato' && <ContactScreen />}
+        </main>
+
+        <Toasts
+          toasts={toasts}
+          onOpen={(t) => {
+            setTab('pedidos');
+            dismissToast(t.id);
+          }}
+          onDismiss={dismissToast}
+        />
+
+        {notifOpen && (
+          <NotificationPanel
+            orders={orders}
+            notifNewIds={notifNewIds}
+            onClose={() => setNotifOpen(false)}
+            onGoPedidos={() => {
+              setTab('pedidos');
+              setNotifOpen(false);
+            }}
+          />
+        )}
+
+        {showCartBar && <CartBar count={cart.count} total={cart.total} onOpen={() => setCheckoutOpen(true)} />}
+
+        <BottomNav tab={tab} onTab={setTab} orderCount={orders.length} />
+
+        {loading && (
+          <Loading
+            message={loading === 'order' ? 'Gerando sua comanda' : 'Enviando solicitação'}
+            sub={loading === 'order' ? 'Confirmando seu pedido para retirada...' : 'Processaremos sua agenda em até 24h...'}
+          />
+        )}
+
+        {checkoutOpen && (
+          <CheckoutSheet
+            cart={cart}
+            total={cart.total}
+            checkout={checkout}
+            setCheckout={setCheckout}
+            onClose={() => setCheckoutOpen(false)}
+            onConfirm={confirmOrder}
+          />
+        )}
+
+        {order && (
+          <OrderSuccess
+            order={order}
+            onClose={() => {
+              setOrder(null);
+              setCheckout((c) => ({ ...c, custName: '' }));
+            }}
+          />
+        )}
+
+        {evConfirm && <EventConfirm data={evConfirm} onClose={() => setEvConfirm(null)} />}
+      </div>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+
+</script>
+<script>
+(function(){
+  function boot(){
+    var src = document.getElementById('appsrc').textContent;
+    try {
+      var code = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
+      new Function('React','ReactDOM', code)(window.React, window.ReactDOM);
+    } catch (e) {
+      document.getElementById('root').innerHTML =
+        '<pre style="color:#ff8a80;white-space:pre-wrap;padding:16px;font:12px ui-monospace,monospace">'+
+        (e && (e.stack||e.message) || e)+'</pre>';
+    }
+  }
+  if (document.readyState !== 'loading') boot();
+  else document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+</body>
+</html>
