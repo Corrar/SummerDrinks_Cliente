@@ -1,26 +1,24 @@
 import { useState } from 'react';
-import { statusOf, MESES } from '../../data/calendar.js';
+import { statusOf, slotsOfDay, MESES } from '../../data/calendar.js';
 import { Calendar } from './Calendar.jsx';
+import { useDispo } from '../../hooks/useDispo.js';
 import { PhoneIcon, CalendarCheckIcon } from '../../icons.jsx';
 
 const TIPOS = ['Casamento', 'Aniversário', 'Corporativo', 'Formatura', 'Confraternização', 'Outro'];
-const SLOT_BASE = [
-  ['Tarde', '14h às 18h'],
-  ['Noite', '19h às 23h'],
-  ['Madrugada', '23h às 03h'],
-];
 
 /**
- * Aba Eventos: agenda de disponibilidade + formulário de contratação.
- * Ao enviar, chama `onSubmit({ protocolo, date, slot, contact })`
- * — o App exibe o loading e o modal de confirmação.
+ * Aba Eventos: agenda de disponibilidade viva + formulário de contratação.
+ * Disponibilidade e ocupação vêm do backend (useDispo → /public/:tenant/disponibilidade).
+ * Ao enviar, chama `onSubmit(dados)` — o App faz o POST em /public/:tenant/eventos.
  */
 export function EventsScreen({ onSubmit }) {
-  const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(5);
+  const hoje = new Date();
+  const [year, setYear] = useState(hoje.getFullYear());
+  const [month, setMonth] = useState(hoje.getMonth());
   const [day, setDay] = useState(null);
   const [slot, setSlot] = useState(null);
   const [ev, setEv] = useState({ nome: '', tel: '', email: '', tipo: 'Casamento', pessoas: '', local: '', obs: '' });
+  const { dias, loading: dispoLoading } = useDispo(year, month);
 
   const onEv = (field) => (e) => {
     const v = e.target.value;
@@ -32,7 +30,7 @@ export function EventsScreen({ onSubmit }) {
     setSlot(null);
   }
   function prevMonth() {
-    if (year === 2026 && month <= 5) return;
+    if (year === hoje.getFullYear() && month <= hoje.getMonth()) return;
     setMonth((m) => (m === 0 ? 11 : m - 1));
     if (month === 0) setYear((y) => y - 1);
     setDay(null);
@@ -45,12 +43,12 @@ export function EventsScreen({ onSubmit }) {
     setSlot(null);
   }
 
-  // Horários do dia selecionado (o segundo horário fica ocupado em dias parciais).
+  // Horários do dia derivados da disponibilidade do backend (não mais heurística).
   let slots = [];
   if (day != null) {
-    const st = statusOf(year, month, day);
+    const st = statusOf(dias, year, month, day);
     if (st === 'livre' || st === 'parcial') {
-      slots = SLOT_BASE.map(([label, time], i) => ({ label, time, taken: st === 'parcial' && i === 1 }));
+      slots = slotsOfDay(dias, year, month, day);
     }
   }
   const hasDay = day != null && slots.length > 0;
@@ -105,6 +103,8 @@ export function EventsScreen({ onSubmit }) {
       <Calendar
         year={year}
         month={month}
+        dias={dias}
+        loading={dispoLoading}
         selectedDay={day}
         onSelectDay={selectDay}
         onPrev={prevMonth}

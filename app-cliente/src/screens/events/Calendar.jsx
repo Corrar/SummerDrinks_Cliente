@@ -1,15 +1,17 @@
-import { statusOf, STATUS_COLOR, MESES } from '../../data/calendar.js';
+import { statusOf, STATUS_COLOR, MESES, WEEK_DAYS } from '../../data/calendar.js';
 import { ChevronLeftIcon, ChevronRightIcon } from '../../icons.jsx';
 
 /**
- * Calendário de disponibilidade. Dias livres/parciais são clicáveis;
- * ocupados e passados ficam desabilitados.
- * Props: year, month, selectedDay, onSelectDay, onPrev, onNext.
+ * Calendário de disponibilidade viva (backend).
+ * Dias livres/parciais são clicáveis; ocupados, indisponíveis e passados ficam desabilitados.
+ * Props: year, month, dias, loading, selectedDay, onSelectDay, onPrev, onNext.
  */
-export function Calendar({ year: y, month: m, selectedDay, onSelectDay, onPrev, onNext }) {
+export function Calendar({ year: y, month: m, dias, loading, selectedDay, onSelectDay, onPrev, onNext }) {
   const first = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const atMinMonth = y === 2026 && m <= 5;
+
+  const hoje = new Date();
+  const atMinMonth = y === hoje.getFullYear() && m <= hoje.getMonth();
 
   const cellBase = {
     aspectRatio: '1 / 1',
@@ -30,11 +32,12 @@ export function Calendar({ year: y, month: m, selectedDay, onSelectDay, onPrev, 
     cells.push(<span key={'x' + i} style={{ ...cellBase, visibility: 'hidden' }} />);
   }
   for (let d = 1; d <= daysInMonth; d++) {
-    const st = statusOf(y, m, d);
+    const st = statusOf(dias, y, m, d);
     const sel = selectedDay === d;
     const clickable = st === 'livre' || st === 'parcial';
     let style;
     if (st === 'past') style = { ...cellBase, background: 'transparent', color: 'rgba(var(--ink),.18)', cursor: 'default' };
+    else if (st === 'indisponivel') style = { ...cellBase, background: 'transparent', color: 'rgba(var(--ink),.25)', cursor: 'default' };
     else if (st === 'ocupado') style = { ...cellBase, background: 'rgba(226,59,59,.08)', color: 'rgba(var(--ink),.3)', cursor: 'not-allowed' };
     else if (sel) style = { ...cellBase, background: '#f5a623', color: '#1a1206', cursor: 'pointer' };
     else style = { ...cellBase, background: 'var(--surface-2)', color: 'rgb(var(--ink))', cursor: 'pointer' };
@@ -67,7 +70,7 @@ export function Calendar({ year: y, month: m, selectedDay, onSelectDay, onPrev, 
           <ChevronLeftIcon size={18} />
         </button>
         <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '16px' }}>
-          {MESES[m]} {y}
+          {MESES[m]} {y}{loading ? ' · atualizando…' : ''}
         </span>
         <button onClick={onNext} style={navBtn(false)}>
           <ChevronRightIcon size={18} />
@@ -75,7 +78,7 @@ export function Calendar({ year: y, month: m, selectedDay, onSelectDay, onPrev, 
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '4px', marginBottom: '6px' }}>
-        {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((w, i) => (
+        {WEEK_DAYS.map((w, i) => (
           <span key={i} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, color: 'rgba(var(--ink),.35)' }}>
             {w}
           </span>
