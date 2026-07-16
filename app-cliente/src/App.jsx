@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTheme } from './hooks/useTheme.js';
 import { useCart } from './hooks/useCart.js';
 import { useRemoteOrders, isReady } from './hooks/useRemoteOrders.js';
+import { useRemoteAgendas } from './hooks/useRemoteAgendas.js';
 import { useMenu } from './hooks/useMenu.js';
 import { api, uuid } from './lib/api.js';
 import { enfileirar } from './lib/outbox.js';
@@ -41,8 +42,16 @@ export function App({
   const [tab, setTab] = useState(defaultTab);
   const { dark, toggle } = useTheme(temaInicial);
   const cart = useCart();
-  const { orders, criarPedido, seen, markSeen, toasts, dismissToast, notifNewIds, setNotifNewIds } = useRemoteOrders();
+  const { orders, criarPedido, seen, markSeen, toasts: toastsPedido, dismissToast: dismissToastPedido, notifNewIds, setNotifNewIds } = useRemoteOrders();
+  const { registrar: registrarAgenda, toasts: toastsAgenda, dismissToast: dismissToastAgenda } = useRemoteAgendas();
   const { featured } = useMenu();
+
+  // Toasts unificados: pedidos (verde, "pronto") + agendas (âmbar/vermelho, status mudou).
+  const toasts = [...toastsPedido, ...toastsAgenda];
+  const dismissToast = (id) => {
+    dismissToastPedido(id);
+    dismissToastAgenda(id);
+  };
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkout, setCheckout] = useState({ payNow: payNowDefault, method: 'pix', custName: '' });
@@ -83,6 +92,13 @@ export function App({
     };
     try {
       const resp = await api.criarEvento(payload, idemKey);
+      registrarAgenda({
+        protocolo: resp.protocolo,
+        data: data.data,
+        slot: data.slot,
+        dateLabel: data.dateLabel,
+        tipo: data.tipo,
+      });
       setEvConfirm({ dateLabel: data.dateLabel, slot: data.slot, contact: data.telefone, protocolo: resp.protocolo });
     } catch (err) {
       if (err && err.rede) {
@@ -151,7 +167,8 @@ export function App({
         <Toasts
           toasts={toasts}
           onOpen={(t) => {
-            setTab('pedidos');
+            // Agenda → aba Eventos; pedido → aba Pedidos.
+            setTab(t.kind === 'agenda' ? 'eventos' : 'pedidos');
             dismissToast(t.id);
           }}
           onDismiss={dismissToast}

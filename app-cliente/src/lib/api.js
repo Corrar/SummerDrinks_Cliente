@@ -163,4 +163,12 @@ export const api = {
    */
   criarEvento: (payload, idemKey) =>
     requisicao('/eventos', { method: 'POST', body: payload, idempotencyKey: idemKey }),
+
+  /**
+   * Status de uma solicitação de evento pelo protocolo público (SD-XXXXXX).
+   * Retorna { status, data, hora, valor, motivo_recusa }.
+   * `status` ∈ 'solicitado' | 'agendado' | 'confirmado' | 'recusado'.
+   * `motivo_recusa` só vem preenchido quando status='recusado'.
+   */
+  statusAgenda: (protocolo) => requisicao(`/agenda/${protocolo}`, { tentativas: 2 }),
 };
