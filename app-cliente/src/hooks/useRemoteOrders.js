@@ -1,0 +1,140 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { api, uuid } from '../lib/api.js';
+import { enfileirar, autoDrenar } from '../lib/outbox.js';
+import { loadJSON, saveJSON } from '../lib/storage.js';
+
+const ORDERS_KEY = 'sd_orders';
+const SEEN_KEY = 'sd_seen';
+const POLL_MS = 6000;
+
+/** Pronto para retirada segundo o servidor. */
+export function isReady(o) {
+  return o.status === 'pronto' || o.status === 'entregue';
+}
+
+/**
+ * Pedidos com verdade no servidor. Substitui useOrders:
+ *  - senha e hora vêm do backend (nada de senha aleatória no cliente);
+ *  - offline → outbox reenvia com a mesma idempotência (sem duplicar);
+ *  - status é acompanhado por polling com token opaco;
+ *  - mantém a mesma superfície de toasts/seen/notificação da UI original.
+ *
+ * criarPedido() resolve com { ok, order } | { offline:true }.
+ */
+export function useRemoteOrders() {
+  const [orders, setOrders] = useState(() => loadJSON(ORDERS_KEY, []));
+  const [seen, setSeen] = useState(() => loadJSON(SEEN_KEY, []));
+  const [toasts, setToasts] = useState([]);
+  const [notifNewIds, setNotifNewIds] = useState([]);
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
+
+  const persist = useCallback((next) => {
+    saveJSON(ORDERS_KEY, next);
+    return next;
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((ts) => ts.filter((t) => t.id !== id));
+  }, []);
+
+  const pushToast = useCallback(
+    (o) => {
+      setToasts((ts) => (ts.some((t) => t.id === o.id) ? ts : [...ts, { id: o.id, senha: o.senha, name: o.name }]));
+      setTimeout(() => dismissToast(o.id), 8000);
+    },
+    [dismissToast],
+  );
+
+  const markSeen = useCallback((ids) => {
+    setSeen((prev) => {
+      const next = Array.from(new Set([...prev, ...ids]));
+      saveJSON(SEEN_KEY, next);
+      return next;
+    });
+  }, []);
+
+  // ---------- criação ----------
+  const criarPedido = useCallback(
+    async (cart, checkout) => {
+      const idemKey = uuid();
+      const payload = {
+        cliente: checkout.custName || '',
+        pagamento: checkout.method,             // 'pix' | 'cartao' | 'especie'
+        pago: !!checkout.payNow,
+        itens: cart.items.map((c) => ({ id: c.id, qty: c.qty, p: c.p })),
+      };
+      const baseOrder = {
+        id: Date.now(),
+        ts: Date.now(),
+        items: cart.items,
+        method: checkout.method,
+        payNow: !!checkout.payNow,
+        name: checkout.custName || '',
+      };
+
+      try {
+        const resp = await api.criarPedido(payload, idemKey);
+        const order = { ...baseOrder, token: resp.token, senha: resp.senha, hora: resp.hora, status: resp.status, total: resp.total };
+        setOrders((prev) => persist([order, ...prev]));
+        return { ok: true, order };
+      } catch (err) {
+        if (err && err.rede) {
+          // sem conexão → enfileira; o outbox reenvia com a MESMA idempotência.
+          enfileirar({ id: idemKey, kind: 'pedido', payload });
+          return { offline: true };
+        }
+        throw err; // 4xx (ex.: item inválido) → App trata
+      }
+    },
+    [persist],
+  );
+
+  // ---------- acompanhamento de status (polling com token) ----------
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      const ativos = ordersRef.current.filter((o) => o.token && o.status !== 'entregue');
+      if (!ativos.length) return;
+      for (const o of ativos) {
+        try {
+          const s = await api.statusPedido(o.token);
+          if (s.status !== o.status) {
+            setOrders((prev) => {
+              const next = prev.map((x) => (x.id === o.id ? { ...x, status: s.status, senha: s.senha } : x));
+              return persist(next);
+            });
+            if (s.status === 'pronto' && !seen.includes(o.id)) pushToast({ ...o, senha: s.senha });
+          }
+        } catch {
+          /* rede instável: tenta na próxima rodada */
+        }
+      }
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [persist, pushToast, seen]);
+
+  // ---------- drenagem do outbox ----------
+  useEffect(() => {
+    return autoDrenar({
+      onEnviado: (_entry, resp) => {
+        // materializa o pedido que estava offline com a senha/token reais
+        setOrders((prev) => {
+          if (prev.some((o) => o.token === resp.token)) return prev;
+          const order = { id: Date.now(), ts: Date.now(), items: [], name: '', method: 'pix', payNow: false, token: resp.token, senha: resp.senha, hora: resp.hora, status: resp.status, total: resp.total };
+          return persist([order, ...prev]);
+        });
+      },
+    });
+  }, [persist]);
+
+  return {
+    orders,
+    criarPedido,
+    seen,
+    markSeen,
+    toasts,
+    dismissToast,
+    notifNewIds,
+    setNotifNewIds,
+  };
+}

@@ -1,37 +1,43 @@
-# Summer Drinks — Integração App do Cliente ↔ Atendimento
+# Summer Drinks — App do Cliente
 
-Conecta o **app do cliente** (PWA `summer-drinks-react`) ao **sistema de
-atendimento** (backend + PDV/Painel/Agenda). O cliente faz pedidos e solicita
-eventos; tudo cai no atendimento, em tempo real, com a operação como fonte da
-verdade.
+PWA que o cliente final usa (cardápio, pedidos, agendamento de eventos).
+Consome a **borda pública** do sistema de atendimento (`/public/:tenant/*`),
+que é a fonte da verdade sobre preço, senha, status e disponibilidade.
+
+## Repositórios do ecossistema
+- **Este repo** (`SummerDrinks_Cliente`): PWA (`app-cliente/`) + patch de integração histórico (`app-cliente-patch/`) + documentação da ponte.
+- **Backend**: [`Corrar/SummerDrinks_Atendimento`](https://github.com/Corrar/SummerDrinks_Atendimento) — atendimento (Node/Express/Postgres), migrations, borda pública, agenda, catálogo, config. Extraído deste monorepo preservando os 6 commits históricos (Fase 1 → Fase-config).
 
 ## Estrutura
 ```
-summer-integracao/
+SummerDrinks_Cliente/
 ├── MEGABRAIN-INTEGRACAO.md   ← LEIA PRIMEIRO: ACL, fluxos, trust model, plano
 ├── SECURITY-BORDA.md         ← threat model da borda pública + gate de segurança
 ├── .claude/skills/           ← acl-mapeamento, borda-resiliente
-├── atendimento/              ← backend de atendimento + camada de integração (tsc --strict limpo)
-│   ├── db/migrations/002_integracao.sql
-│   └── src/{types/acl.ts, types/schemas-publicos.ts, services/EdgeIngestService.ts,
-│            http/routes/public.ts (v2), realtime/io.ts, http/routes/orders.ts}
-└── app-cliente-patch/        ← drop-in no app do cliente (não altera o visual)
+├── app-cliente/              ← PWA (React + Vite) — integração aplicada
+│   └── src/{lib/{config,api,outbox}.js, hooks/{useMenu,useRemoteOrders}.js, ...}
+└── app-cliente-patch/        ← drop-in histórico (referência do que foi aplicado no PWA)
     ├── APLICAR.md            ← diffs exatos (App.jsx, EventsScreen, EventConfirm)
     └── src/{lib/config.js, lib/api.js, lib/outbox.js, hooks/useMenu.js, hooks/useRemoteOrders.js}
 ```
 
 ## Subir o atendimento
 ```bash
-cd atendimento
+git clone https://github.com/Corrar/SummerDrinks_Atendimento
+cd SummerDrinks_Atendimento
 cp .env.example .env      # DATABASE_URL, JWT_SECRET, CORS_ORIGINS (inclua a origem do app)
 npm install
-npm run migrate           # aplica 001 + 002
+npm run migrate           # aplica 001..006
 npm run dev               # porta 3000
 ```
 
-## Conectar o app do cliente
-Siga `app-cliente-patch/APLICAR.md`. Resumo: copie os 5 arquivos, aplique os
-diffs cirúrgicos, crie `.env` com `VITE_API_URL` e `VITE_TENANT`.
+## Subir o PWA
+```bash
+cd app-cliente
+cp .env.example .env      # VITE_API_URL=http://localhost:3000, VITE_TENANT=summer
+npm install
+npm run dev
+```
 
 ## O que a integração garante
 - Senha **atômica do servidor** (fim da senha aleatória no browser).
@@ -41,4 +47,4 @@ diffs cirúrgicos, crie `.env` com `VITE_API_URL` e `VITE_TENANT`.
 - **Idempotência** ponta-a-ponta + **outbox offline** (rede de trailer).
 - PII protegida; borda com rate limit, zod e queries parametrizadas.
 
-Verificação: `atendimento` compila com `tsc --strict` limpo; patch validado em ESM.
+Verificação: backend (repo próprio) compila com `tsc --strict` limpo; PWA (`app-cliente/`) build verde no Vite (61 módulos, 213 KB / 64 KB gzip).

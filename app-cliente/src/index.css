@@ -1,0 +1,138 @@
+/* ============================================================
+   Summer Drinks — estilos globais
+   Apenas o que não pode ser inline: variáveis de tema, keyframes,
+   resets e ajustes de scrollbar/placeholder. O restante do estilo
+   vive em `style={{}}` nos componentes (padrão do design original).
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0d0a07;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Tema (escopo .sd-app) ---- */
+.sd-app {
+  --bg: #16120d;
+  --bg-2: #13100b;
+  --surface: #1c1710;
+  --surface-2: #211b13;
+  --input: #0f0c08;
+  --sheet: #1a150e;
+  --backdrop: #0d0a07;
+  --backdrop-2: #221a10;
+  --ink: 246, 239, 226;
+}
+
+.sd-app[data-theme='light'] {
+  --bg: #fbf5ec;
+  --bg-2: #f1e8d8;
+  --surface: #ffffff;
+  --surface-2: #f0e6d4;
+  --input: #f5edde;
+  --sheet: #fffaf2;
+  --backdrop: #e9e0cf;
+  --backdrop-2: #f4ecdc;
+  --ink: 42, 30, 16;
+}
+
+/* ---- Transições suaves de tema ---- */
+.sd-app *,
+.sd-app *::before,
+.sd-app *::after {
+  transition: background-color 0.32s ease, color 0.3s ease, border-color 0.32s ease,
+    fill 0.28s ease, stroke 0.28s ease;
+}
+.sd-app button {
+  transition: background-color 0.3s ease, color 0.28s ease, border-color 0.3s ease,
+    transform 0.14s ease;
+}
+.sd-app button:active {
+  transform: scale(0.955);
+}
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- Scrollbars ocultas ---- */
+.sd-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.sd-scroll {
+  scrollbar-width: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(var(--ink), 0.32);
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* ---- Animações ---- */
+@keyframes sdRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sdSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sdPop {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sdFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sdToastIn {
+  0% { opacity: 0; transform: translateY(-130%) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sdMenuIn {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sdBellRing {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(16deg); }
+  40% { transform: rotate(-13deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(-5deg); }
+}
+@keyframes sdSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes sdCheckPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sdCheckDraw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes sdRingPulse {
+  0% { transform: scale(0.62); opacity: 0.65; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes sdModalIn {
+  0% { opacity: 0; transform: translateY(24px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
