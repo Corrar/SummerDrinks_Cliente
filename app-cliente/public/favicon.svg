@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Ícone Summer Drinks — recriação vetorial da arte original (taça neon):
+       anel magenta, taça rosa, pé azul, azeitona verde sobre fundo preto.
+       Reenquadrado em 1:1 e com traços reforçados para legibilidade em 16-32px.
+       Cantos transparentes (só o disco é preto) para a aba do navegador. -->
+  <defs>
+    <linearGradient id="anel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a0d35"/>
+      <stop offset="1" stop-color="#8e155f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- disco de fundo com o anel -->
+  <circle cx="256" cy="256" r="238" fill="#000000" stroke="url(#anel)" stroke-width="20"/>
+
+  <!-- taça (bowl) -->
+  <path d="M116 148 H396 L256 340 Z" fill="none" stroke="#ff2d9b" stroke-width="20" stroke-linejoin="round"/>
+
+  <!-- pé e base -->
+  <line x1="256" y1="340" x2="256" y2="428" stroke="#4a6fd4" stroke-width="20"/>
+  <line x1="188" y1="436" x2="324" y2="436" stroke="#4a6fd4" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- palito com azeitona -->
+  <line x1="302" y1="194" x2="366" y2="110" stroke="#5e9b2d" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="371" cy="103" r="18" fill="#5e9b2d"/>
+</svg>
