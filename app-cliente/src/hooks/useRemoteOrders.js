@@ -186,9 +186,22 @@ export function useRemoteOrders() {
         // 'evento' é assunto do useRemoteAgendas — nada a materializar aqui.
       },
       onDescartado: (entry, err) => {
-        // Avaliação recusada em definitivo: 409 AVALIACAO_EXISTENTE = já contou
-        // (mantém como avaliada); qualquer outro 4xx desfaz o otimismo local.
-        if (entry.kind === 'avaliacao' && err?.codigo !== 'AVALIACAO_EXISTENTE') {
+        if (entry.kind !== 'avaliacao') return;
+        if (err?.codigo === 'AVALIACAO_EXISTENTE') {
+          // Já contou no servidor (ex.: INSERT commitou mas a resposta se perdeu
+          // e a drenagem reenviou) — espelha o onEnviado: limpa o "pendente",
+          // senão a UI mostraria "enviaremos ao reconectar" para sempre.
+          setOrders((prev) =>
+            persist(
+              prev.map((o) =>
+                o.token === entry.payload.token && o.avaliacao
+                  ? { ...o, avaliacao: { nota: o.avaliacao.nota, comentario: o.avaliacao.comentario } }
+                  : o,
+              ),
+            ),
+          );
+        } else {
+          // 4xx real (ex.: pedido não entregue): desfaz o otimismo local.
           setOrders((prev) =>
             persist(prev.map((o) => (o.token === entry.payload.token ? { ...o, avaliacao: undefined } : o))),
           );
