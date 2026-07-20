@@ -14,12 +14,12 @@ export function useDispo(year, month) {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (fresco = false) => {
     const mes = `${year}-${String(month + 1).padStart(2, '0')}`;
     setLoading(true);
     setErro(null);
     try {
-      const resp = await api.getDisponibilidade(mes);
+      const resp = await api.getDisponibilidade(mes, { fresco: fresco === true });
       setDias(resp?.dias || {});
     } catch (e) {
       setErro(e);
@@ -33,9 +33,10 @@ export function useDispo(year, month) {
     carregar();
   }, [carregar]);
 
-  // Push do servidor → refetch do mês corrente (o payload do evento é só um
-  // aviso; a verdade continua sendo o GET, que já desconta a ocupação).
-  useEffect(() => assinarDispo(() => carregar()), [carregar]);
+  // Push do servidor → refetch FRESCO do mês corrente (fura o max-age=30; sem
+  // isso o browser serviria o snapshot cacheado e o push viraria no-op). O
+  // payload do evento é só um aviso; a verdade continua sendo o GET.
+  useEffect(() => assinarDispo(() => carregar(true)), [carregar]);
 
   return { dias, loading, erro, reload: carregar };
 }

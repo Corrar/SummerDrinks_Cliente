@@ -5,6 +5,7 @@ import {
   PhoneIcon,
   MailIcon,
   InstagramIcon,
+  RefreshIcon,
 } from '../icons.jsx';
 import { useConfig } from '../hooks/useConfig.js';
 import { rotuloHorario } from '../lib/schedule.js';
@@ -28,7 +29,8 @@ function digitosBr(numero) {
  * configurado simplesmente não aparece — nada de número fake hardcoded.
  */
 export function ContactScreen() {
-  const { horarios, locais, contato } = useConfig();
+  const { horarios, locais, contato, loading, erro, reload } = useConfig();
+  const temCanal = !!(contato.whatsapp || contato.telefone || contato.email);
 
   // Local ativo prioritário; se o backend não devolveu nada, cai no fallback visível.
   const localAtivo = locais.find((l) => l.ativo) ?? locais[0] ?? ENDERECO_FALLBACK;
@@ -135,6 +137,29 @@ export function ContactScreen() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Regressão evitada: sem rede, os canais NÃO podem sumir em silêncio —
+            é exatamente quando o cliente mais precisa ligar/chamar no WhatsApp. */}
+        {!temCanal && (erro || loading) && (
+          <div style={{ ...cardLink, cursor: 'default', display: 'block', textAlign: 'center', padding: '18px 15px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(var(--ink),.6)', marginBottom: erro ? '12px' : 0 }}>
+              {erro ? 'Não foi possível carregar os contatos.' : 'Carregando contatos…'}
+            </div>
+            {erro && (
+              <button
+                onClick={reload}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '7px',
+                  padding: '10px 18px', border: 'none', borderRadius: '11px',
+                  background: '#f5a623', color: '#1a1206',
+                  fontFamily: 'Hanken Grotesk', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
+                }}
+              >
+                <RefreshIcon size={14} /> Tentar novamente
+              </button>
+            )}
+          </div>
+        )}
+
         {contato.whatsapp && (
           <a href={`https://wa.me/${digitosBr(contato.whatsapp)}`} target="_blank" rel="noreferrer" style={cardLink}>
             <span style={iconBox('rgba(182,232,76,.14)', '#b6e84c')}>

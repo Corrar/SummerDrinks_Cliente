@@ -67,7 +67,7 @@ function backoff(tentativa, retryAfterSeg) {
  * @param {object} opts  { method, body, idempotencyKey, timeoutMs, tentativas }
  */
 async function requisicao(path, opts = {}) {
-  const { method = 'GET', body, idempotencyKey, timeoutMs = TIMEOUT_MS } = opts;
+  const { method = 'GET', body, idempotencyKey, timeoutMs = TIMEOUT_MS, cache } = opts;
   const maxTent = opts.tentativas ?? MAX_TENTATIVAS;
 
   if (circuitoAberto()) {
@@ -89,6 +89,7 @@ async function requisicao(path, opts = {}) {
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: ac.signal,
+        ...(cache ? { cache } : {}),
       });
       clearTimeout(timer);
 
@@ -142,8 +143,13 @@ export const api = {
   /** Cardápio ao vivo no shape do app: [{ id, n, p, v, d, cat, color, img }]. */
   getMenu: () => requisicao('/menu'),
 
-  /** Disponibilidade do mês: { mes, dias: { 'YYYY-MM-DD': {tarde,noite,madrugada} } }. */
-  getDisponibilidade: (mes) => requisicao(`/disponibilidade${mes ? `?mes=${mes}` : ''}`),
+  /**
+   * Disponibilidade do mês: { mes, dias: { 'YYYY-MM-DD': {tarde,noite,madrugada} } }.
+   * `fresco: true` fura o cache HTTP (a rota tem max-age=30) — usado no refetch
+   * disparado por `dispo:updated`, que sem isso poderia devolver o snapshot velho.
+   */
+  getDisponibilidade: (mes, { fresco = false } = {}) =>
+    requisicao(`/disponibilidade${mes ? `?mes=${mes}` : ''}`, fresco ? { cache: 'no-store' } : {}),
 
   /**
    * Cria um pedido. payload: { cliente, pagamento:'pix'|'cartao'|'especie', pago, itens:[{id,qty,p?}] }
