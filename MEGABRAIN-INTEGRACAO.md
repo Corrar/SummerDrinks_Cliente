@@ -167,6 +167,12 @@ App: POST /public/:tenant/eventos  body { nome,telefone,email,tipo,pessoas,local
 - **Fase 6 — Cardápio único**: `data/menu.js` REMOVIDO do app; todo o cardápio
   (destaques, busca, categorias) vem de `GET /menu`. O cardápio real é semeado no
   catálogo do atendimento por `npm run seed:menu` e gerido pelo painel (Cardápio).
+- **Fase 7 — Feedback do pedido**: ✅ pedido ENTREGUE pode ser avaliado no app
+  (nota 1-5 + comentário) via `POST /public/:tenant/pedido/:token/avaliacao` —
+  token opaco é a prova de posse, 1 avaliação por pedido (PK por token),
+  comentário sanitizado. Offline → outbox (kind `avaliacao`). A gestão vê
+  média/distribuição/lista no Relatório do painel (`GET /avaliacoes`), com
+  push `avaliacao:created` na sala privada.
 
 ---
 

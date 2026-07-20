@@ -163,6 +163,14 @@ export const api = {
   statusPedido: (token) => requisicao(`/pedido/${token}`, { tentativas: 2 }),
 
   /**
+   * Avalia um pedido ENTREGUE: payload { nota: 1..5, comentario? }. O token
+   * opaco é a prova de posse; o servidor deduplica (1 avaliação por pedido —
+   * repetição → 409 AVALIACAO_EXISTENTE, que o app trata como sucesso).
+   */
+  avaliarPedido: (token, payload) =>
+    requisicao(`/pedido/${token}/avaliacao`, { method: 'POST', body: payload }),
+
+  /**
    * Cria solicitação de evento (payload COMPLETO).
    * payload: { nome, telefone, email?, tipo, pessoas, local, obs, data:'YYYY-MM-DD', slot:'Tarde'|'Noite'|'Madrugada' }
    * Retorna { protocolo }.

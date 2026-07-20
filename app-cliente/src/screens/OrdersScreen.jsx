@@ -2,9 +2,10 @@ import { brl, formatOrderTime } from '../lib/format.js';
 import { PAYMENT_LABELS } from '../lib/labels.js';
 import { isReady } from '../hooks/useRemoteOrders.js';
 import { CupIcon } from '../icons.jsx';
+import { OrderRating, RatingDone } from '../components/OrderRating.jsx';
 
-/** Aba "Meus pedidos": lista de comandas com senha e status. */
-export function OrdersScreen({ orders, onGoCardapio }) {
+/** Aba "Meus pedidos": lista de comandas com senha, status e avaliação pós-entrega. */
+export function OrdersScreen({ orders, onGoCardapio, onAvaliar }) {
   return (
     <div style={{ padding: '6px 20px 0' }}>
       <span style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '3px', color: '#f5a623' }}>SUAS COMANDAS</span>
@@ -17,6 +18,7 @@ export function OrdersScreen({ orders, onGoCardapio }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
             {orders.map((o) => {
               const preparing = !isReady(o);
+              const entregue = o.status === 'entregue';
               const ml = PAYMENT_LABELS[o.method] || '';
               return (
                 <div
@@ -58,7 +60,7 @@ export function OrdersScreen({ orders, onGoCardapio }) {
                           color: preparing ? '#f5a623' : '#b6e84c',
                         }}
                       >
-                        {preparing ? 'Em preparo' : 'Pronto p/ retirada'}
+                        {preparing ? 'Em preparo' : entregue ? 'Entregue' : 'Pronto p/ retirada'}
                       </span>
                       <span style={{ fontSize: '11px', color: 'rgba(var(--ink),.4)', whiteSpace: 'nowrap' }}>{formatOrderTime(o.ts)}</span>
                     </div>
@@ -74,6 +76,15 @@ export function OrdersScreen({ orders, onGoCardapio }) {
                       </span>
                       <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '16px' }}>{brl(o.total)}</span>
                     </div>
+
+                    {/* feedback: só depois de entregue (o servidor também exige) */}
+                    {entregue && o.token && (
+                      o.avaliacao ? (
+                        <RatingDone avaliacao={o.avaliacao} />
+                      ) : (
+                        <OrderRating onSubmit={(nota, comentario) => onAvaliar(o, nota, comentario)} />
+                      )
+                    )}
                   </div>
                 </div>
               );

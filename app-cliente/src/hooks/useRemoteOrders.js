@@ -130,16 +130,69 @@ export function useRemoteOrders() {
     return () => clearInterval(timer);
   }, [aplicarStatus]);
 
+  // ---------- avaliação (nota 1-5 + comentário) de pedido entregue ----------
+  const avaliar = useCallback(
+    async (order, nota, comentario) => {
+      const body = { nota, comentario: (comentario || '').trim() };
+      const marca = (extra = {}) =>
+        setOrders((prev) =>
+          persist(prev.map((x) => (x.id === order.id ? { ...x, avaliacao: { ...body, ...extra } } : x))),
+        );
+      try {
+        await api.avaliarPedido(order.token, body);
+        marca();
+        return { ok: true };
+      } catch (err) {
+        // Já avaliado (retry/dupla submissão): servidor deduplicou — sucesso.
+        if (err && err.codigo === 'AVALIACAO_EXISTENTE') {
+          marca();
+          return { ok: true };
+        }
+        if (err && err.rede) {
+          // sem conexão → outbox reenvia; marcamos como pendente na UI.
+          enfileirar({ id: uuid(), kind: 'avaliacao', payload: { token: order.token, body } });
+          marca({ pendente: true });
+          return { offline: true };
+        }
+        throw err; // 4xx real (ex.: pedido não entregue) → tela trata
+      }
+    },
+    [persist],
+  );
+
   // ---------- drenagem do outbox ----------
   useEffect(() => {
     return autoDrenar({
-      onEnviado: (_entry, resp) => {
-        // materializa o pedido que estava offline com a senha/token reais
-        setOrders((prev) => {
-          if (prev.some((o) => o.token === resp.token)) return prev;
-          const order = { id: Date.now(), ts: Date.now(), items: [], name: '', method: 'pix', payNow: false, token: resp.token, senha: resp.senha, hora: resp.hora, status: resp.status, total: resp.total };
-          return persist([order, ...prev]);
-        });
+      onEnviado: (entry, resp) => {
+        if (entry.kind === 'pedido') {
+          // materializa o pedido que estava offline com a senha/token reais
+          setOrders((prev) => {
+            if (prev.some((o) => o.token === resp.token)) return prev;
+            const order = { id: Date.now(), ts: Date.now(), items: [], name: '', method: 'pix', payNow: false, token: resp.token, senha: resp.senha, hora: resp.hora, status: resp.status, total: resp.total };
+            return persist([order, ...prev]);
+          });
+        } else if (entry.kind === 'avaliacao') {
+          // avaliação enviada: limpa o "pendente" da UI
+          setOrders((prev) =>
+            persist(
+              prev.map((o) =>
+                o.token === entry.payload.token && o.avaliacao
+                  ? { ...o, avaliacao: { nota: o.avaliacao.nota, comentario: o.avaliacao.comentario } }
+                  : o,
+              ),
+            ),
+          );
+        }
+        // 'evento' é assunto do useRemoteAgendas — nada a materializar aqui.
+      },
+      onDescartado: (entry, err) => {
+        // Avaliação recusada em definitivo: 409 AVALIACAO_EXISTENTE = já contou
+        // (mantém como avaliada); qualquer outro 4xx desfaz o otimismo local.
+        if (entry.kind === 'avaliacao' && err?.codigo !== 'AVALIACAO_EXISTENTE') {
+          setOrders((prev) =>
+            persist(prev.map((o) => (o.token === entry.payload.token ? { ...o, avaliacao: undefined } : o))),
+          );
+        }
       },
     });
   }, [persist]);
@@ -147,6 +200,7 @@ export function useRemoteOrders() {
   return {
     orders,
     criarPedido,
+    avaliar,
     seen,
     markSeen,
     toasts,

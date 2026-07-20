@@ -44,7 +44,7 @@ export function App({
   const [tab, setTab] = useState(defaultTab);
   const { dark, toggle } = useTheme(temaInicial);
   const cart = useCart();
-  const { orders, criarPedido, seen, markSeen, toasts: toastsPedido, dismissToast: dismissToastPedido, notifNewIds, setNotifNewIds } = useRemoteOrders();
+  const { orders, criarPedido, avaliar, seen, markSeen, toasts: toastsPedido, dismissToast: dismissToastPedido, notifNewIds, setNotifNewIds } = useRemoteOrders();
   const { registrar: registrarAgenda, toasts: toastsAgenda, dismissToast: dismissToastAgenda } = useRemoteAgendas();
   const menu = useMenu();
   const config = useConfig();
@@ -120,6 +120,15 @@ export function App({
     }
   }
 
+  async function avaliarPedido(order, nota, comentario) {
+    try {
+      return await avaliar(order, nota, comentario);
+    } catch (err) {
+      alert(err?.message || 'Não foi possível enviar a avaliação. Tente novamente.');
+      return { ok: false };
+    }
+  }
+
   function openBell() {
     const newIds = readyOrders.filter((o) => !seen.includes(o.id)).map((o) => o.id);
     markSeen(readyOrders.map((o) => o.id));
@@ -167,7 +176,7 @@ export function App({
 
         <main className="sd-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '0 0 150px' }}>
           {tab === 'cardapio' && <MenuScreen menu={menu} onAdd={cart.add} qtyOf={cart.qtyOf} />}
-          {tab === 'pedidos' && <OrdersScreen orders={orders} onGoCardapio={() => setTab('cardapio')} />}
+          {tab === 'pedidos' && <OrdersScreen orders={orders} onGoCardapio={() => setTab('cardapio')} onAvaliar={avaliarPedido} />}
           {tab === 'eventos' && <EventsScreen onSubmit={submitEvent} />}
           {tab === 'contato' && <ContactScreen />}
         </main>

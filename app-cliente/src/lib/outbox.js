@@ -28,7 +28,10 @@ function gravar(lista) {
   }
 }
 
-/** Enfileira uma mutação. entry: { id(idemKey), kind:'pedido'|'evento', payload }. */
+/**
+ * Enfileira uma mutação. entry: { id(idemKey), kind:'pedido'|'evento'|'avaliacao', payload }.
+ * Para 'avaliacao', payload = { token, body } (a dedup é o PK por token no servidor).
+ */
 export function enfileirar(entry) {
   const lista = ler();
   if (!lista.some((e) => e.id === entry.id)) {
@@ -60,7 +63,9 @@ export async function drenar(cb = {}) {
         const resultado =
           entry.kind === 'pedido'
             ? await api.criarPedido(entry.payload, entry.id)
-            : await api.criarEvento(entry.payload, entry.id);
+            : entry.kind === 'avaliacao'
+              ? await api.avaliarPedido(entry.payload.token, entry.payload.body)
+              : await api.criarEvento(entry.payload, entry.id);
         remover(entry.id);
         cb.onEnviado?.(entry, resultado);
       } catch (err) {
