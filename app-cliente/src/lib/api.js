@@ -172,6 +172,10 @@ export const api = {
    */
   statusAgenda: (protocolo) => requisicao(`/agenda/${protocolo}`, { tentativas: 2 }),
 
-  /** Config pública: { horarios, locais }. SEM PII (telefone/whatsapp não vazam por aqui). */
+  /**
+   * Config pública: { horarios, locais, contato:{ telefone, whatsapp, email, instagram } }.
+   * `contato` é o canal COMERCIAL do bar (publicado pela gestão); PII de cliente
+   * nunca trafega na borda pública.
+   */
   getConfig: () => requisicao('/config'),
 };

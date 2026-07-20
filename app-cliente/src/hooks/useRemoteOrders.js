@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, uuid } from '../lib/api.js';
 import { enfileirar, autoDrenar } from '../lib/outbox.js';
 import { loadJSON, saveJSON } from '../lib/storage.js';
+import { assinarPedido } from '../lib/realtime.js';
 
 const ORDERS_KEY = 'sd_orders';
 const SEEN_KEY = 'sd_seen';
@@ -16,7 +17,8 @@ export function isReady(o) {
  * Pedidos com verdade no servidor. Substitui useOrders:
  *  - senha e hora vêm do backend (nada de senha aleatória no cliente);
  *  - offline → outbox reenvia com a mesma idempotência (sem duplicar);
- *  - status é acompanhado por polling com token opaco;
+ *  - status é acompanhado por polling com token opaco + push opcional via
+ *    Socket.IO (sala pedido:<token>); o polling segue como rede de segurança.
  *  - mantém a mesma superfície de toasts/seen/notificação da UI original.
  *
  * criarPedido() resolve com { ok, order } | { offline:true }.
@@ -90,28 +92,43 @@ export function useRemoteOrders() {
     [persist],
   );
 
-  // ---------- acompanhamento de status (polling com token) ----------
+  // ---------- aplicação de um status vindo do servidor (polling OU socket) ----------
+  const aplicarStatus = useCallback(
+    (token, s) => {
+      const alvo = ordersRef.current.find((o) => o.token === token);
+      if (!alvo || s.status === alvo.status) return;
+      setOrders((prev) => {
+        const next = prev.map((x) => (x.token === token ? { ...x, status: s.status, senha: s.senha } : x));
+        return persist(next);
+      });
+      if (s.status === 'pronto') pushToast({ ...alvo, senha: s.senha });
+    },
+    [persist, pushToast],
+  );
+
+  // ---------- push instantâneo (Socket.IO) do pedido em aberto mais recente ----------
+  // O handshake fixa UM pedidoToken por conexão; acompanhamos o mais novo em
+  // aberto — os demais continuam cobertos pelo polling logo abaixo.
+  const tokenAtivo = orders.find((o) => o.token && o.status !== 'entregue')?.token ?? null;
+  useEffect(() => {
+    if (!tokenAtivo) return undefined;
+    return assinarPedido(tokenAtivo, (s) => aplicarStatus(tokenAtivo, s));
+  }, [tokenAtivo, aplicarStatus]);
+
+  // ---------- acompanhamento de status (polling com token — rede de segurança) ----------
   useEffect(() => {
     const timer = setInterval(async () => {
       const ativos = ordersRef.current.filter((o) => o.token && o.status !== 'entregue');
-      if (!ativos.length) return;
       for (const o of ativos) {
         try {
-          const s = await api.statusPedido(o.token);
-          if (s.status !== o.status) {
-            setOrders((prev) => {
-              const next = prev.map((x) => (x.id === o.id ? { ...x, status: s.status, senha: s.senha } : x));
-              return persist(next);
-            });
-            if (s.status === 'pronto' && !seen.includes(o.id)) pushToast({ ...o, senha: s.senha });
-          }
+          aplicarStatus(o.token, await api.statusPedido(o.token));
         } catch {
           /* rede instável: tenta na próxima rodada */
         }
       }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [persist, pushToast, seen]);
+  }, [aplicarStatus]);
 
   // ---------- drenagem do outbox ----------
   useEffect(() => {

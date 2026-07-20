@@ -15,9 +15,20 @@ function mapaSrc(consulta) {
   return `https://www.google.com/maps?q=${encodeURIComponent(consulta)}&z=15&output=embed`;
 }
 
-/** Aba Contato: mapa do trailer, canais de contato e horário (vivo via /public/config). */
+/** Só dígitos, com DDI 55 na frente quando o número vier sem código do país. */
+function digitosBr(numero) {
+  const d = String(numero || '').replace(/\D/g, '');
+  if (!d) return '';
+  return d.length <= 11 ? `55${d}` : d;
+}
+
+/**
+ * Aba Contato — TUDO vivo via /public/config: mapa/endereço (locais), canais
+ * (contato comercial publicado pela gestão) e horários. Canal sem valor
+ * configurado simplesmente não aparece — nada de número fake hardcoded.
+ */
 export function ContactScreen() {
-  const { horarios, locais } = useConfig();
+  const { horarios, locais, contato } = useConfig();
 
   // Local ativo prioritário; se o backend não devolveu nada, cai no fallback visível.
   const localAtivo = locais.find((l) => l.ativo) ?? locais[0] ?? ENDERECO_FALLBACK;
@@ -124,38 +135,44 @@ export function ContactScreen() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <a href="https://wa.me/5581999990000" target="_blank" rel="noreferrer" style={cardLink}>
-          <span style={iconBox('rgba(182,232,76,.14)', '#b6e84c')}>
-            <WhatsappIcon size={20} />
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '14px' }}>WhatsApp</div>
-            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>(81) 9 9999-0000</div>
-          </div>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: '#1a1206', background: '#b6e84c', borderRadius: '999px', padding: '7px 14px' }}>
-            Chamar
-          </span>
-        </a>
+        {contato.whatsapp && (
+          <a href={`https://wa.me/${digitosBr(contato.whatsapp)}`} target="_blank" rel="noreferrer" style={cardLink}>
+            <span style={iconBox('rgba(182,232,76,.14)', '#b6e84c')}>
+              <WhatsappIcon size={20} />
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>WhatsApp</div>
+              <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>{contato.whatsapp}</div>
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#1a1206', background: '#b6e84c', borderRadius: '999px', padding: '7px 14px' }}>
+              Chamar
+            </span>
+          </a>
+        )}
 
-        <a href="tel:+5581999990000" style={cardLink}>
-          <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
-            <PhoneIcon size={19} />
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '14px' }}>Telefone</div>
-            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>(81) 3333-0000</div>
-          </div>
-        </a>
+        {contato.telefone && (
+          <a href={`tel:+${digitosBr(contato.telefone)}`} style={cardLink}>
+            <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
+              <PhoneIcon size={19} />
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>Telefone</div>
+              <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>{contato.telefone}</div>
+            </div>
+          </a>
+        )}
 
-        <a href="mailto:contato@summerdrinks.com.br" style={cardLink}>
-          <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
-            <MailIcon size={19} />
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '14px' }}>E-mail</div>
-            <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>contato@summerdrinks.com.br</div>
-          </div>
-        </a>
+        {contato.email && (
+          <a href={`mailto:${contato.email}`} style={cardLink}>
+            <span style={iconBox('rgba(245,166,35,.14)', '#f5a623')}>
+              <MailIcon size={19} />
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>E-mail</div>
+              <div style={{ fontSize: '13px', color: 'rgba(var(--ink),.55)' }}>{contato.email}</div>
+            </div>
+          </a>
+        )}
 
         <div style={{ ...cardLink, cursor: 'default', display: 'block', padding: '14px 15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '13px', marginBottom: horariosOrdenados.length ? '10px' : 0 }}>
@@ -179,10 +196,12 @@ export function ContactScreen() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', justifyContent: 'center', margin: '18px 0 4px', color: 'rgba(var(--ink),.5)' }}>
-        <InstagramIcon size={16} />
-        <span style={{ fontSize: '13px', fontWeight: 600 }}>@summerdrinks</span>
-      </div>
+      {contato.instagram && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', justifyContent: 'center', margin: '18px 0 4px', color: 'rgba(var(--ink),.5)' }}>
+          <InstagramIcon size={16} />
+          <span style={{ fontSize: '13px', fontWeight: 600 }}>{contato.instagram}</span>
+        </div>
+      )}
       <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, letterSpacing: '1px', color: '#f5a623', padding: '6px 0 4px' }}>
         SOMENTE RETIRADA NO LOCAL
       </div>

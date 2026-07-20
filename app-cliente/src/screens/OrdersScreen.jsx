@@ -1,6 +1,6 @@
 import { brl, formatOrderTime } from '../lib/format.js';
 import { PAYMENT_LABELS } from '../lib/labels.js';
-import { isReady } from '../hooks/useOrders.js';
+import { isReady } from '../hooks/useRemoteOrders.js';
 import { CupIcon } from '../icons.jsx';
 
 /** Aba "Meus pedidos": lista de comandas com senha e status. */

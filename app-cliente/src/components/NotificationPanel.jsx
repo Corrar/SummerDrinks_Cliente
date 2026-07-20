@@ -1,5 +1,5 @@
 import { formatOrderTime } from '../lib/format.js';
-import { isReady } from '../hooks/useOrders.js';
+import { isReady } from '../hooks/useRemoteOrders.js';
 import { BellIcon, XIcon, ChevronRightIcon, CheckCircleIcon } from '../icons.jsx';
 
 /**

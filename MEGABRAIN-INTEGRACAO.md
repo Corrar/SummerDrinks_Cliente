@@ -128,7 +128,10 @@ App: POST /public/:tenant/eventos  body { nome,telefone,email,tipo,pessoas,local
 - **Preço**: sempre do catálogo no servidor. `p` do cliente nunca vira dinheiro.
 - **Senha**: nunca do cliente. Alocação atômica `INSERT ... ON CONFLICT DO UPDATE`.
 - **Status/valor/origem/tenant**: fixados server-side.
-- **PII** (telefone, email): entra, é gravada, **nunca sai** em rota pública nem log.
+- **PII de CLIENTE** (agenda.telefone/email): entra, é gravada, **nunca sai** em rota
+  pública nem log. Distinto do **contato COMERCIAL do bar** (config.telefone/whatsapp/
+  email/instagram), publicado deliberadamente em `GET /public/:tenant/config` →
+  `{ horarios, locais, contato }` para a aba Contato do app.
 - **Idempotência**: `X-Idempotency-Key` → `op_key` UNIQUE no banco. Retry/replay não duplica.
 - **Rate limit**: por `IP+tenant`, separado para pedido (20/min) e evento (5/min).
 - **Token**: uuid opaco; a sala realtime é chaveada só pelo token (o cliente não conhece o tenant_id).
@@ -156,9 +159,14 @@ App: POST /public/:tenant/eventos  body { nome,telefone,email,tipo,pessoas,local
 - **Fase 3 — Evento**: rota `/eventos` + patch do formulário. Gate: solicitação
   cai na Agenda como `solicitado`; PII não vaza.
 - **Fase 4 — Disponibilidade viva**: mesclar slots ocupados por agenda aceita em
-  `/disponibilidade`; emitir `dispo:updated` à sala pública.
-- **Fase 5 — Notificação ao cliente**: worker de outbox → WhatsApp/push quando o
-  evento é aceito/confirmado. (Depende de transporte — Green API já no ecossistema.)
+  `/disponibilidade`; emitir `dispo:updated` à sala pública. ✅ (o app assina a
+  sala via `lib/realtime.js` e refaz o fetch do mês; polling continua de rede de segurança)
+- **Fase 5 — Notificação ao cliente**: worker de outbox → WhatsApp quando o evento
+  muda de estado. ✅ `GreenApiTransport` real em `notif/transport.ts`; ligar com
+  `NOTIF_DRIVER=green` + `GREEN_API_ID_INSTANCE`/`GREEN_API_TOKEN` no deploy.
+- **Fase 6 — Cardápio único**: `data/menu.js` REMOVIDO do app; todo o cardápio
+  (destaques, busca, categorias) vem de `GET /menu`. O cardápio real é semeado no
+  catálogo do atendimento por `npm run seed:menu` e gerido pelo painel (Cardápio).
 
 ---
 

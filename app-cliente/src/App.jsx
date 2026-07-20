@@ -46,8 +46,9 @@ export function App({
   const cart = useCart();
   const { orders, criarPedido, seen, markSeen, toasts: toastsPedido, dismissToast: dismissToastPedido, notifNewIds, setNotifNewIds } = useRemoteOrders();
   const { registrar: registrarAgenda, toasts: toastsAgenda, dismissToast: dismissToastAgenda } = useRemoteAgendas();
-  const { featured } = useMenu();
-  const { horarios } = useConfig();
+  const menu = useMenu();
+  const config = useConfig();
+  const { horarios } = config;
 
   // Aberto/Fechado derivado dos horários publicados. Enquanto o config não chega,
   // cai no valor da prop `aberta` (compat com o comportamento antigo).
@@ -165,7 +166,7 @@ export function App({
         />
 
         <main className="sd-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '0 0 150px' }}>
-          {tab === 'cardapio' && <MenuScreen featured={featured} onAdd={cart.add} qtyOf={cart.qtyOf} />}
+          {tab === 'cardapio' && <MenuScreen menu={menu} onAdd={cart.add} qtyOf={cart.qtyOf} />}
           {tab === 'pedidos' && <OrdersScreen orders={orders} onGoCardapio={() => setTab('cardapio')} />}
           {tab === 'eventos' && <EventsScreen onSubmit={submitEvent} />}
           {tab === 'contato' && <ContactScreen />}
@@ -218,6 +219,10 @@ export function App({
         {order && (
           <OrderSuccess
             order={order}
+            retirada={(() => {
+              const l = config.locais.find((x) => x.ativo) ?? config.locais[0];
+              return l ? [l.nome, l.endereco].filter(Boolean).join(' — ') : '';
+            })()}
             onClose={() => {
               setOrder(null);
               setCheckout((c) => ({ ...c, custName: '' }));

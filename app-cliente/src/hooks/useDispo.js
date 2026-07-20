@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api.js';
+import { assinarDispo } from '../lib/realtime.js';
 
 /**
  * Disponibilidade viva do mês (fonte: /public/:tenant/disponibilidade).
- * Refetch automático quando (year, month) muda. Shape de `dias`:
+ * Refetch automático quando (year, month) muda e quando o servidor emite
+ * `dispo:updated` na sala pública (Socket.IO). Shape de `dias`:
  *   { 'YYYY-MM-DD': { tarde: bool, noite: bool, madrugada: bool } }
  * Um dia ausente em `dias` significa "não declarado na base" (indisponível).
  */
@@ -30,6 +32,10 @@ export function useDispo(year, month) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Push do servidor → refetch do mês corrente (o payload do evento é só um
+  // aviso; a verdade continua sendo o GET, que já desconta a ocupação).
+  useEffect(() => assinarDispo(() => carregar()), [carregar]);
 
   return { dias, loading, erro, reload: carregar };
 }

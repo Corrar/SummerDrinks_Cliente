@@ -8,9 +8,11 @@ chega como hostil. Este documento é o gate de segurança da integração.
 |---|---|---|---|
 | `/public/:tenant/menu` | GET | — | itens (sem custo interno) |
 | `/public/:tenant/disponibilidade` | GET | `?mes` | dias livres |
+| `/public/:tenant/config` | GET | — | `{horarios,locais,contato}` (contato COMERCIAL do bar — ver nota de PII) |
 | `/public/:tenant/pedidos` | POST | `{cliente,pagamento,pago,itens}` | `{token,senha,hora,status,total}` |
 | `/public/:tenant/pedido/:token` | GET | token opaco | `{senha,status,hora,pago}` |
 | `/public/:tenant/eventos` | POST | formulário completo | `{protocolo}` |
+| `/public/:tenant/agenda/:protocolo` | GET | protocolo `SD-XXXXXX` | `{status,data,hora,valor,motivo_recusa}` (sem PII) |
 
 ## Controles por ameaça (OWASP)
 
@@ -26,15 +28,21 @@ chega como hostil. Este documento é o gate de segurança da integração.
   são **fixados no servidor**; nunca lidos do corpo. Preço do cliente é ignorado.
 - **A04 Insecure Design / fraude de preço** — re-precificação obrigatória pelo
   catálogo. Divergência cliente×servidor é logada, não aceita.
-- **Vazamento de PII** — `telefone` e `email` entram e são gravados, mas **nenhuma
-  rota GET pública os retorna** e **nenhum log os imprime**. O menu público monta
-  DTO explícito (sem custo, sem PII).
+- **Vazamento de PII** — `telefone` e `email` DO CLIENTE entram e são gravados,
+  mas **nenhuma rota GET pública os retorna** e **nenhum log os imprime**. O menu
+  público monta DTO explícito (sem custo, sem PII). DISTINÇÃO deliberada: o
+  `contato` de `/public/:tenant/config` é o canal COMERCIAL do bar
+  (telefone/whatsapp/email/instagram cadastrados pela gestão no painel para o
+  cliente chamar o trailer) — publicado de propósito; não confundir com PII de
+  cliente (`agenda.telefone/email`), que continua proibida na borda.
 - **A05 Rate / DoS** — `express-rate-limit` por `IP+tenant`: pedido 20/min,
   evento 5/min → 429 com Retry-After. Body global ≤ 32 kb. Timeout de conexão no pool.
 - **Idempotência / replay** — `X-Idempotency-Key` → `op_key` UNIQUE. Reenvio
   (retry de rede, duplo-toque, drenagem de outbox) devolve o mesmo pedido, nunca dois.
-- **Realtime** — sala pública `pedido:{token}` é **read-only** e não exige auth;
-  só emite `{senha,status,hora,pago}` de UM pedido. Sem broadcast cruzado entre clientes.
+- **Realtime** — salas públicas são **read-only** e não exigem auth:
+  `pedido:{token}` só emite `{senha,status,hora,pago}` de UM pedido;
+  `tenant:{slug}:public` só emite `dispo:updated` (aviso de refetch, sem dado
+  sensível). Sem broadcast cruzado entre clientes.
 - **Segredos** — nada hardcoded. `.env` (JWT_SECRET, DATABASE_URL) fora do git.
   App do cliente só conhece `API_URL` + `TENANT` (públicos por natureza).
 
@@ -45,7 +53,9 @@ chega como hostil. Este documento é o gate de segurança da integração.
 - [ ] Mesma `X-Idempotency-Key` reenviada → **mesmo token/senha** (200 replay).
 - [ ] N pedidos concorrentes → senhas **sequenciais e únicas** (0 colisão, 0 buraco).
 - [ ] `GET /pedido/:token` com token de outro pedido → só o **daquele** token.
-- [ ] Nenhuma rota pública retorna `telefone`/`email`. `grep` nos logs: 0 PII.
+- [ ] Nenhuma rota pública retorna `telefone`/`email` DE CLIENTE (agenda). O
+      `contato` comercial de `/config` é allowlist exata. `grep` nos logs: 0 PII.
+- [ ] `GET /agenda/:protocolo` devolve `motivo_recusa` só em `recusado`; nunca nome/telefone/email.
 - [ ] `POST /eventos` acima do limite → **429** com Retry-After.
 - [ ] `slug` inexistente → **404** genérico.
 - [ ] Origem fora da allowlist de CORS → bloqueada.

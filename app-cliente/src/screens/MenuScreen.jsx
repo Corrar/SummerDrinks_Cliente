@@ -1,20 +1,28 @@
 import { useState, useMemo } from 'react';
-import { MENU } from '../data/menu.js';
 import { brl } from '../lib/format.js';
 import { ImageSlot } from '../components/ImageSlot.jsx';
-import { TrendingUpIcon, SearchIcon, PlusIcon } from '../icons.jsx';
+import { TrendingUpIcon, SearchIcon, PlusIcon, RefreshIcon } from '../icons.jsx';
 
-/** Cardápio: destaques, busca, filtros por categoria e lista agrupada. */
-export function MenuScreen({ featured, onAdd, qtyOf }) {
+/**
+ * Cardápio: destaques, busca, filtros por categoria e lista agrupada.
+ *
+ * TODO o conteúdo vem do cardápio VIVO (useMenu → GET /public/:tenant/menu).
+ * Nada de lista estática aqui: o `id` de cada item é a referência opaca
+ * (`catalogoId__idx`) que o backend re-precifica no checkout — um item de
+ * origem local seria recusado com 422 ITEM_INVALIDO.
+ */
+export function MenuScreen({ menu, onAdd, qtyOf }) {
+  const { byCat, featured, loading, erro, reload } = menu;
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('Todos');
   const q = search.trim().toLowerCase();
 
-  const chips = [{ name: 'Todos', color: '#f5a623', todos: true }, ...MENU.map((c) => ({ name: c.name, color: c.color }))];
+  const chips = [{ name: 'Todos', color: '#f5a623', todos: true }, ...byCat.map((c) => ({ name: c.name, color: c.color }))];
 
   const filteredCats = useMemo(
     () =>
-      MENU.filter((c) => cat === 'Todos' || cat === c.name)
+      byCat
+        .filter((c) => cat === 'Todos' || cat === c.name)
         .map((c) => {
           const items = c.items.filter(
             (it) => !q || it.n.toLowerCase().includes(q) || it.d.toLowerCase().includes(q),
@@ -22,7 +30,7 @@ export function MenuScreen({ featured, onAdd, qtyOf }) {
           return items.length ? { ...c, count: items.length, items } : null;
         })
         .filter(Boolean),
-    [cat, q],
+    [byCat, cat, q],
   );
 
   const chipBase = {
@@ -40,106 +48,145 @@ export function MenuScreen({ featured, onAdd, qtyOf }) {
     border: '1px solid rgba(var(--ink),.1)',
   };
 
+  // Cardápio ainda não chegou: estado de carga/erro em tela cheia (sem lista
+  // fantasma — pedir de um cardápio desatualizado é pior que esperar).
+  if (!byCat.length) {
+    return (
+      <div style={{ textAlign: 'center', padding: '70px 30px', color: 'rgba(var(--ink),.5)' }}>
+        {loading ? (
+          <>
+            <div style={{ margin: '0 auto 14px', width: '26px', height: '26px', border: '3px solid rgba(var(--ink),.12)', borderTopColor: '#f5a623', borderRadius: '50%', animation: 'sdSpin .8s linear infinite' }} />
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>Carregando o cardápio…</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>
+              {erro ? 'Não conseguimos carregar o cardápio.' : 'Cardápio em preparação.'}
+            </div>
+            <div style={{ fontSize: '12px', marginBottom: '18px' }}>
+              {erro ? 'Verifique sua conexão e tente de novo.' : 'Volte em instantes — estamos organizando as bebidas.'}
+            </div>
+            <button
+              onClick={reload}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                padding: '11px 20px', border: 'none', borderRadius: '12px',
+                background: '#f5a623', color: '#1a1206',
+                fontFamily: 'Hanken Grotesk', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
+              }}
+            >
+              <RefreshIcon size={15} /> Tentar novamente
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: '2px 0 0' }}>
       {/* Mais pedidas */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 20px 14px' }}>
-        <span style={{ display: 'flex', color: '#f5a623' }}>
-          <TrendingUpIcon size={18} />
-        </span>
-        <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '18px' }}>Mais pedidas</span>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            color: 'rgba(var(--ink),.4)',
-            marginLeft: 'auto',
-            paddingRight: '20px',
-          }}
-        >
-          os queridinhos
-        </span>
-      </div>
-      <div
-        className="sd-scroll"
-        style={{
-          display: 'flex',
-          gap: '13px',
-          overflowX: 'auto',
-          padding: '0 20px 16px',
-          scrollSnapType: 'x mandatory',
-        }}
-      >
-        {featured.map((it, i) => (
+      {featured.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 20px 14px' }}>
+            <span style={{ display: 'flex', color: '#f5a623' }}>
+              <TrendingUpIcon size={18} />
+            </span>
+            <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '18px' }}>Mais pedidas</span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: 'rgba(var(--ink),.4)',
+                marginLeft: 'auto',
+                paddingRight: '20px',
+              }}
+            >
+              os queridinhos
+            </span>
+          </div>
           <div
-            key={it.id}
+            className="sd-scroll"
             style={{
-              flex: '0 0 196px',
-              width: '196px',
-              scrollSnapAlign: 'start',
               display: 'flex',
-              flexDirection: 'column',
-              borderRadius: '18px',
-              overflow: 'hidden',
-              background: 'var(--surface)',
-              border: '1px solid rgba(var(--ink),.08)',
+              gap: '13px',
+              overflowX: 'auto',
+              padding: '0 20px 16px',
+              scrollSnapType: 'x mandatory',
             }}
           >
-            <div style={{ position: 'relative', width: '100%', height: '110px', background: 'var(--input)' }}>
-              <ImageSlot
-                id={'feat-' + it.id}
-                shape="rect"
-                fit="cover"
-                placeholder="Adicionar foto"
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-              />
-              <span
+            {featured.map((it, i) => (
+              <div
+                key={it.id}
                 style={{
-                  position: 'absolute',
-                  top: '8px',
-                  left: '8px',
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  color: '#fff',
-                  background: 'rgba(0,0,0,.55)',
-                  backdropFilter: 'blur(4px)',
-                  borderRadius: '999px',
-                  padding: '3px 9px',
+                  flex: '0 0 196px',
+                  width: '196px',
+                  scrollSnapAlign: 'start',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  background: 'var(--surface)',
+                  border: '1px solid rgba(var(--ink),.08)',
                 }}
               >
-                {i + 1}º
-              </span>
-            </div>
-            <div style={{ padding: '12px 13px 13px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.3px', color: 'rgba(var(--ink),.5)' }}>
-                {it.v}
-              </span>
-              <span
-                style={{
-                  fontFamily: "'Bricolage Grotesque'",
-                  fontWeight: 800,
-                  fontSize: '17px',
-                  lineHeight: 1.1,
-                  letterSpacing: '-.3px',
-                  flex: 1,
-                }}
-              >
-                {it.n}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '17px', color: it.color }}>
-                  {brl(it.p)}
-                </span>
-                <button onClick={() => onAdd(it)} style={addBtn(36, 11)}>
-                  <PlusIcon size={19} />
-                </button>
+                <div style={{ position: 'relative', width: '100%', height: '110px', background: 'var(--input)' }}>
+                  <ImageSlot
+                    id={'feat-' + it.id}
+                    shape="rect"
+                    fit="cover"
+                    placeholder="Adicionar foto"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      left: '8px',
+                      zIndex: 2,
+                      pointerEvents: 'none',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#fff',
+                      background: 'rgba(0,0,0,.55)',
+                      backdropFilter: 'blur(4px)',
+                      borderRadius: '999px',
+                      padding: '3px 9px',
+                    }}
+                  >
+                    {i + 1}º
+                  </span>
+                </div>
+                <div style={{ padding: '12px 13px 13px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.3px', color: 'rgba(var(--ink),.5)' }}>
+                    {it.v}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "'Bricolage Grotesque'",
+                      fontWeight: 800,
+                      fontSize: '17px',
+                      lineHeight: 1.1,
+                      letterSpacing: '-.3px',
+                      flex: 1,
+                    }}
+                  >
+                    {it.n}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: '17px', color: it.color }}>
+                      {brl(it.p)}
+                    </span>
+                    <button onClick={() => onAdd(it)} style={addBtn(36, 11)}>
+                      <PlusIcon size={19} />
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       {/* Busca + chips */}
       <div style={{ padding: '6px 20px 0' }}>

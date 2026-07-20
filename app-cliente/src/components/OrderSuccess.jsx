@@ -2,8 +2,12 @@ import { brl } from '../lib/format.js';
 import { PAYMENT_LABELS } from '../lib/labels.js';
 import { MapPinIcon } from '../icons.jsx';
 
-/** Tela de sucesso do pedido — exibe a senha grande e o resumo. */
-export function OrderSuccess({ order, onClose }) {
+/**
+ * Tela de sucesso do pedido — exibe a senha grande e o resumo.
+ * `retirada` (opcional) é o local ativo publicado na config (nome + endereço);
+ * sem config carregada, mostra só o texto genérico — nada de endereço fixo.
+ */
+export function OrderSuccess({ order, retirada, onClose }) {
   const ml = PAYMENT_LABELS[order.method];
   const payStatus = order.payNow ? `Pago via ${ml}` : 'Pagar na retirada';
   const payDot = order.payNow ? '#b6e84c' : '#f5a623';
@@ -67,7 +71,9 @@ export function OrderSuccess({ order, onClose }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', color: 'rgba(var(--ink),.5)' }}>
           <MapPinIcon size={15} />
-          <span style={{ fontSize: '12px', fontWeight: 600 }}>Retirada no trailer · Av. Boa Viagem, 1500</span>
+          <span style={{ fontSize: '12px', fontWeight: 600 }}>
+            {retirada ? `Retirada no trailer · ${retirada}` : 'Retirada no trailer'}
+          </span>
         </div>
       </div>
 
