@@ -64,7 +64,13 @@ export function useRemoteOrders() {
         cliente: checkout.custName || '',
         pagamento: checkout.method,             // 'pix' | 'cartao' | 'especie'
         pago: !!checkout.payNow,
-        itens: cart.items.map((c) => ({ id: c.id, qty: c.qty, p: c.p })),
+        // Linhas "dobradas" carregam o sufixo '::d' no id local (p/ o carrinho
+        // separar da versão normal). Aqui tiramos o sufixo — o servidor precisa
+        // da referência limpa "catalogoId__idx" — e mandamos `dobrada` à parte.
+        itens: cart.items.map((c) => {
+          const dobrada = String(c.id).endsWith('::d');
+          return { id: dobrada ? c.id.slice(0, -3) : c.id, qty: c.qty, p: c.p, dobrada };
+        }),
       };
       const baseOrder = {
         id: Date.now(),

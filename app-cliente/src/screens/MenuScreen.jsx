@@ -291,6 +291,17 @@ export function MenuScreen({ menu, onAdd, qtyOf }) {
                       <button onClick={() => onAdd(it)} style={addBtn(34, 10)}>
                         <PlusIcon size={18} />
                       </button>
+                      {it.db > 0 && (() => {
+                        const dq = qtyOf(it.id + '::d');
+                        return (
+                          <button
+                            onClick={() => onAdd({ ...it, id: it.id + '::d', p: it.p + it.db, v: it.v ? `${it.v} · Dobrada` : 'Dobrada' })}
+                            style={{ display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid ' + (dq > 0 ? '#f5a623' : 'rgba(var(--ink),.2)'), background: dq > 0 ? 'rgba(245,166,35,.16)' : 'transparent', color: dq > 0 ? '#f5a623' : 'rgba(var(--ink),.6)', borderRadius: '999px', padding: '4px 9px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            {dq > 0 ? `Dobrada · ${dq}` : `Dobrar +${brl(it.db)}`}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
