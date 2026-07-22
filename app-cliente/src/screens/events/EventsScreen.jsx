@@ -185,7 +185,7 @@ export function EventsScreen({ onSubmit }) {
 
             <div>
               <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>Tipo de evento</div>
-              <div className="sd-scroll" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {TIPOS.map((t) => (
                   <button
                     key={t}
