@@ -19,6 +19,7 @@ export function useConfig() {
   const [horarios, setHorarios] = useState([]);
   const [locais, setLocais] = useState([]);
   const [contato, setContato] = useState(CONTATO_VAZIO);
+  const [cardapiosEvento, setCardapiosEvento] = useState([]); // presets p/ solicitação de evento
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
 
@@ -31,6 +32,7 @@ export function useConfig() {
       setLocais(Array.isArray(cfg?.locais) ? cfg.locais : []);
       // Backends antigos não mandam `contato` — segue vazio (os cards somem).
       setContato({ ...CONTATO_VAZIO, ...(cfg?.contato ?? {}) });
+      setCardapiosEvento(Array.isArray(cfg?.cardapiosEvento) ? cfg.cardapiosEvento : []);
     } catch (e) {
       setErro(e);
     } finally {
@@ -42,5 +44,5 @@ export function useConfig() {
     carregar();
   }, [carregar]);
 
-  return { horarios, locais, contato, loading, erro, reload: carregar };
+  return { horarios, locais, contato, cardapiosEvento, loading, erro, reload: carregar };
 }

@@ -97,6 +97,7 @@ export function App({
       nome: data.nome, telefone: data.telefone, email: data.email,
       tipo: data.tipo, pessoas: Number(data.pessoas) || 0,
       local: data.local, obs: data.obs, data: data.data, slot: data.slot,
+      cardapio: data.cardapio || '',
     };
     try {
       const resp = await api.criarEvento(payload, idemKey);
@@ -177,7 +178,7 @@ export function App({
         <main className="sd-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '0 0 150px' }}>
           {tab === 'cardapio' && <MenuScreen menu={menu} onAdd={cart.add} qtyOf={cart.qtyOf} />}
           {tab === 'pedidos' && <OrdersScreen orders={orders} onGoCardapio={() => setTab('cardapio')} onAvaliar={avaliarPedido} />}
-          {tab === 'eventos' && <EventsScreen onSubmit={submitEvent} />}
+          {tab === 'eventos' && <EventsScreen onSubmit={submitEvent} presets={config.cardapiosEvento} menu={menu.items} />}
           {tab === 'contato' && <ContactScreen />}
         </main>
 

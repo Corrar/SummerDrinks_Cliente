@@ -11,14 +11,33 @@ const TIPOS = ['Casamento', 'Aniversário', 'Corporativo', 'Formatura', 'Confrat
  * Disponibilidade e ocupação vêm do backend (useDispo → /public/:tenant/disponibilidade).
  * Ao enviar, chama `onSubmit(dados)` — o App faz o POST em /public/:tenant/eventos.
  */
-export function EventsScreen({ onSubmit }) {
+export function EventsScreen({ onSubmit, presets = [], menu = [] }) {
   const hoje = new Date();
   const [year, setYear] = useState(hoje.getFullYear());
   const [month, setMonth] = useState(hoje.getMonth());
   const [day, setDay] = useState(null);
   const [slot, setSlot] = useState(null);
   const [ev, setEv] = useState({ nome: '', tel: '', email: '', tipo: 'Casamento', pessoas: '', local: '', obs: '' });
+  // Cardápio do evento: escolher um preset pronto OU montar o seu (drinks do cardápio).
+  const [cardMode, setCardMode] = useState('');      // '' | 'pronto' | 'montar'
+  const [presetSel, setPresetSel] = useState('');    // id do preset escolhido
+  const [montado, setMontado] = useState([]);        // nomes de drinks escolhidos
   const { dias, loading: dispoLoading } = useDispo(year, month);
+
+  // Nomes únicos de drinks do cardápio vivo (p/ montar o próprio).
+  const drinkNames = [...new Set((menu || []).map((m) => m.n).filter(Boolean))];
+  const toggleDrink = (nome) =>
+    setMontado((prev) => (prev.includes(nome) ? prev.filter((x) => x !== nome) : [...prev, nome]));
+
+  // String final do cardápio que vai na solicitação (aparece no painel).
+  function cardapioStr() {
+    if (cardMode === 'pronto' && presetSel) {
+      const p = presets.find((x) => x.id === presetSel);
+      if (p) return p.itens ? `${p.nome}: ${p.itens}` : p.nome;
+    }
+    if (cardMode === 'montar' && montado.length) return `Personalizado: ${montado.join(', ')}`;
+    return '';
+  }
 
   const onEv = (field) => (e) => {
     const v = e.target.value;
@@ -62,6 +81,7 @@ export function EventsScreen({ onSubmit }) {
       nome: ev.nome, telefone: ev.tel, email: ev.email, tipo: ev.tipo,
       pessoas: ev.pessoas, local: ev.local, obs: ev.obs,
       data: iso, slot,
+      cardapio: cardapioStr(),
       dateLabel: `${day} de ${MESES[month]}`,
     });
   }
@@ -200,6 +220,76 @@ export function EventsScreen({ onSubmit }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* ---- Cardápio do evento: pronto (preset) ou montar o seu ---- */}
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(var(--ink),.5)', marginBottom: '8px' }}>
+                Cardápio do evento <span style={{ fontWeight: 500, opacity: 0.7 }}>(opcional)</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: cardMode ? '11px' : 0 }}>
+                {[['pronto', 'Escolher um pronto'], ['montar', 'Montar o meu']].map(([k, label]) => {
+                  const on = cardMode === k;
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setCardMode((m) => (m === k ? '' : k))}
+                      style={{ ...tipoBase, flex: 1, textAlign: 'center', ...(on ? { background: '#f5a623', color: '#1a1206', borderColor: '#f5a623' } : { background: 'var(--surface)', color: 'rgba(var(--ink),.7)' }) }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {cardMode === 'pronto' && (
+                presets.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {presets.map((p) => {
+                      const on = presetSel === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setPresetSel(on ? '' : p.id)}
+                          style={{ textAlign: 'left', padding: '12px 13px', borderRadius: '12px', cursor: 'pointer', border: '1.5px solid ' + (on ? '#f5a623' : 'rgba(var(--ink),.1)'), background: on ? 'rgba(245,166,35,.12)' : 'var(--surface)', color: 'rgb(var(--ink))' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 700, fontSize: '13.5px' }}>
+                            <span style={{ color: '#f5a623' }}>★</span>{p.nome}{on && <span style={{ marginLeft: 'auto', color: '#f5a623', fontSize: '12px' }}>✓ escolhido</span>}
+                          </div>
+                          {p.itens && <div style={{ fontSize: '12px', color: 'rgba(var(--ink),.55)', marginTop: '4px', lineHeight: 1.4 }}>{p.itens}</div>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12.5px', color: 'rgba(var(--ink),.55)', padding: '4px 2px' }}>
+                    Nenhum cardápio pronto disponível — toque em “Montar o meu”.
+                  </div>
+                )
+              )}
+
+              {cardMode === 'montar' && (
+                drinkNames.length ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {drinkNames.map((n) => {
+                      const on = montado.includes(n);
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => toggleDrink(n)}
+                          style={{ ...tipoBase, whiteSpace: 'normal', textAlign: 'left', ...(on ? { background: '#f5a623', color: '#1a1206', borderColor: '#f5a623' } : { background: 'var(--surface)', color: 'rgba(var(--ink),.7)' }) }}
+                        >
+                          {on ? '✓ ' : '+ '}{n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12.5px', color: 'rgba(var(--ink),.55)', padding: '4px 2px' }}>
+                    Cardápio indisponível no momento.
+                  </div>
+                )
+              )}
             </div>
 
             <div>
